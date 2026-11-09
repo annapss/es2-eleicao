@@ -32,6 +32,7 @@ build/
 ### VS Code ###
 .vscode/
 .history/
+**/.history/
 
 ### Banco de Dados Local (SQLite) ###
 *.db
