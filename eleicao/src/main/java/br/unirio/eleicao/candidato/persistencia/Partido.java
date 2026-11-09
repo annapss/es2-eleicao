@@ -1,4 +1,4 @@
-package br.unirio.eleicao.partido.persistencia;
+package br.unirio.eleicao.candidato.persistencia;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -14,7 +14,7 @@ public class Partido {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String sigla;
 
     @Column(nullable = false)
@@ -28,27 +28,15 @@ public class Partido {
         this.nome = nome;
     }
 
-    public Long getId() {
+    public Long id() {
         return id;
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getSigla() {
+    public String sigla() {
         return sigla;
     }
 
-    public void setSigla(String sigla) {
-        this.sigla = sigla;
-    }
-
-    public String getNome() {
+    public String nome() {
         return nome;
-    }
-
-    public void setNome(String nome) {
-        this.nome = nome;
     }
 }
