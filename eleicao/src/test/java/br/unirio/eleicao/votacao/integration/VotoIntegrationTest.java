@@ -3,6 +3,7 @@ package br.unirio.eleicao.votacao.integration;
 import br.unirio.eleicao.ApoioTeste;
 import br.unirio.eleicao.eleitor.persistencia.Eleitor;
 import br.unirio.eleicao.eleitor.persistencia.EleitorRepository;
+import br.unirio.eleicao.votacao.persistencia.VotoRepository;
 import br.unirio.eleicao.votacao.persistencia.Comparecimento;
 import br.unirio.eleicao.votacao.persistencia.ComparecimentoRepository;
 import br.unirio.eleicao.votacao.persistencia.VotoPendente;
@@ -51,6 +52,7 @@ class VotoIntegrationTest {
     @Autowired private VotoPendenteRepository pendentes;
     @Autowired private ComparecimentoRepository comparecimentos;
     @Autowired private EntityManager entityManager;
+    @Autowired private VotoRepository votos;
     private Long eleitorId;
     private String eleitor;
     private Long chefeId;
@@ -190,6 +192,141 @@ class VotoIntegrationTest {
         eleitor = ApoioTeste.bearer(mockMvc, "sem-cadastro", "senha-teste");
         registrar(eleicao.id(), "GOVERNADOR", id).andExpect(status().isForbidden());
         assertEquals(0L, pendentes.count());
+    }
+
+    @Test
+    void confirmacaoContaVotoRemovePendenteERegistraComparecimento() throws Exception {
+        Long id = prepararPendente();
+        confirmar(eleicao.id(), "GOVERNADOR").andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+        entityManager.clear();
+        assertEquals(0L, pendentes.count());
+        assertEquals(1L, comparecimentos.count());
+        var comparecimento = comparecimentos.findAll().getFirst();
+        assertEquals(eleitorId, comparecimento.getEleitorId());
+        assertEquals(eleicao.id(), comparecimento.getEleicaoId());
+        assertEquals(4L, comparecimento.getCargoId());
+        assertNotNull(comparecimento.getVotouEm());
+        var voto = votos.findAll().getFirst();
+        assertEquals(id, voto.getCandidatoId());
+        assertEquals(eleicao.id(), voto.getEleicaoId());
+        assertEquals(4L, voto.getCargoId());
+        assertEquals(1, totalApurado(id));
+    }
+
+    @Test
+    void confirmacaoRepetidaOuNovoRegistroNaoAlteraVotoConfirmado() throws Exception {
+        Long primeiro = prepararPendente();
+        confirmar(eleicao.id(), "GOVERNADOR").andExpect(status().isNoContent());
+        confirmar(eleicao.id(), "GOVERNADOR").andExpect(status().isConflict());
+        registrar(eleicao.id(), "GOVERNADOR", primeiro).andExpect(status().isConflict());
+        Long outro = candidato(eleicao, Cargo.GOVERNADOR, 45, "gov-outro");
+        registrar(eleicao.id(), "GOVERNADOR", outro).andExpect(status().isConflict());
+        assertEquals(1L, votos.count());
+        assertEquals(1, totalApurado(primeiro));
+        assertEquals(0, totalApurado(outro));
+        assertEquals(0L, pendentes.count());
+    }
+
+    @Test
+    void confirmaSomenteOCargoEscolhido() throws Exception {
+        Long governador = candidato(eleicao, Cargo.GOVERNADOR, 15, "gov");
+        Long senador = candidato(eleicao, Cargo.SENADOR, 151, "sen");
+        eleicao.registrarAbertura(LocalDateTime.now());
+        registrar(eleicao.id(), "GOVERNADOR", governador).andExpect(status().isCreated());
+        registrar(eleicao.id(), "SENADOR", senador).andExpect(status().isCreated());
+        confirmar(eleicao.id(), "GOVERNADOR").andExpect(status().isNoContent());
+        assertEquals(1L, pendentes.count());
+        assertEquals(senador, pendentes.findAll().getFirst().getCandidatoId());
+        assertEquals(1, totalApurado(governador));
+        assertEquals(0, totalApurado(senador));
+        confirmar(eleicao.id(), "SENADOR").andExpect(status().isNoContent());
+        assertEquals(1, totalApurado(senador));
+    }
+
+    @Test
+    void confirmacaoIsolaEleitorEEleicaoTurno() throws Exception {
+        Long primeiro = prepararPendente();
+        Eleicao outra = criarEleicao(2);
+        Long segundo = candidato(outra, Cargo.GOVERNADOR, 45, "gov-turno2");
+        outra.registrarAbertura(LocalDateTime.now());
+        registrar(outra.id(), "GOVERNADOR", segundo).andExpect(status().isCreated());
+        Long outroId = autenticacao.criarConta("outro", "senha-teste", Perfil.ELEITOR);
+        eleitores.save(new Eleitor(outroId, "Outro", "98765432100", "outro", LocalDate.of(2000, 1, 1)));
+        eleitor = ApoioTeste.bearer(mockMvc, "outro", "senha-teste");
+        confirmar(eleicao.id(), "GOVERNADOR").andExpect(status().isNotFound());
+        assertEquals(2L, pendentes.count());
+        registrar(eleicao.id(), "GOVERNADOR", primeiro).andExpect(status().isCreated());
+        confirmar(eleicao.id(), "GOVERNADOR").andExpect(status().isNoContent());
+        assertEquals(1, totalApurado(primeiro));
+        eleitor = ApoioTeste.bearer(mockMvc, "el-us16", "senha-teste");
+        confirmar(eleicao.id(), "GOVERNADOR").andExpect(status().isNoContent());
+        confirmar(outra.id(), "GOVERNADOR").andExpect(status().isNoContent());
+        assertEquals(2, totalApurado(primeiro));
+        assertEquals(1, totalApurado(segundo));
+        assertEquals(0L, pendentes.count());
+    }
+
+    @Test
+    void confirmacaoSemPendenteOuEleicaoInexistenteRetorna404() throws Exception {
+        eleicao.registrarAbertura(LocalDateTime.now());
+        confirmar(eleicao.id(), "GOVERNADOR").andExpect(status().isNotFound());
+        confirmar(999999999L, "GOVERNADOR").andExpect(status().isNotFound());
+        assertEquals(0L, votos.count());
+        assertEquals(0L, comparecimentos.count());
+    }
+
+    @Test
+    void confirmacaoEmEleicaoAgendadaOuEncerradaRetorna422() throws Exception {
+        confirmar(eleicao.id(), "GOVERNADOR").andExpect(status().isUnprocessableContent());
+        prepararPendente();
+        eleicao.registrarEncerramento(LocalDateTime.now());
+        confirmar(eleicao.id(), "GOVERNADOR").andExpect(status().isUnprocessableContent());
+        assertEquals(1L, pendentes.count());
+        assertEquals(0L, votos.count());
+        assertEquals(0L, comparecimentos.count());
+    }
+
+    @Test
+    void confirmacaoExigeAutenticacaoPerfilECadastroEleitor() throws Exception {
+        prepararPendente();
+        mockMvc.perform(post("/api/votacao/{id}/votos/GOVERNADOR/confirmacao", eleicao.id()))
+                .andExpect(status().isUnauthorized());
+        for (String login : new String[]{"cs-us16", "gov"}) {
+            eleitor = ApoioTeste.bearer(mockMvc, login, "senha-teste");
+            confirmar(eleicao.id(), "GOVERNADOR").andExpect(status().isForbidden());
+        }
+        autenticacao.criarConta("sem-cadastro", "senha-teste", Perfil.ELEITOR);
+        eleitor = ApoioTeste.bearer(mockMvc, "sem-cadastro", "senha-teste");
+        confirmar(eleicao.id(), "GOVERNADOR").andExpect(status().isForbidden());
+        assertEquals(1L, pendentes.count());
+        assertEquals(0L, votos.count());
+    }
+
+    @Test
+    void cargoInvalidoNaConfirmacaoRetorna400() throws Exception {
+        prepararPendente();
+        confirmar(eleicao.id(), "PREFEITO").andExpect(status().isBadRequest());
+        assertEquals(1L, pendentes.count());
+        assertEquals(0L, votos.count());
+    }
+
+    private Long prepararPendente() throws Exception {
+        Long id = candidato(eleicao, Cargo.GOVERNADOR, 15, "gov");
+        eleicao.registrarAbertura(LocalDateTime.now());
+        registrar(eleicao.id(), "GOVERNADOR", id).andExpect(status().isCreated());
+        return id;
+    }
+
+    private int totalApurado(Long candidatoId) {
+        return ((Number) entityManager.createNativeQuery(
+                "select total_votos from vw_apuracao where candidato_id = :id")
+                .setParameter("id", candidatoId).getSingleResult()).intValue();
+    }
+
+    private ResultActions confirmar(Long eleicaoId, String cargo) throws Exception {
+        return mockMvc.perform(post("/api/votacao/{id}/votos/{cargo}/confirmacao", eleicaoId, cargo)
+                .header("Authorization", eleitor));
     }
 
     private ResultActions registrar(Long eleicaoId, String cargo, Long candidatoId) throws Exception {

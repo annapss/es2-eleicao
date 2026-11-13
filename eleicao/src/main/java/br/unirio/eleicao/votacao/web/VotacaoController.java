@@ -52,4 +52,15 @@ public class VotacaoController {
     public void registrar(@PathVariable Long eleicaoId, @Valid @RequestBody NovoVoto dados) {
         votos.registrar(eleicaoId, dados);
     }
+
+    @Operation(summary = "Confirmar voto pendente",
+            description = "Exclusivo de eleitores cadastrados e eleição ABERTA. Confirma o voto pendente "
+                    + "do cargo para o eleitor autenticado e passa a contabilizá-lo. A escolha confirmada "
+                    + "é imutável. Retorna 204 sem corpo; cargo inválido retorna 400; eleição ou voto pendente "
+                    + "inexistente 404; voto já confirmado 409; eleição não aberta 422.")
+    @PostMapping("/{eleicaoId}/votos/{cargo}/confirmacao")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void confirmar(@PathVariable Long eleicaoId, @PathVariable Cargo cargo) {
+        votos.confirmar(eleicaoId, cargo);
+    }
 }

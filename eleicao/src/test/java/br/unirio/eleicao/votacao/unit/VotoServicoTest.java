@@ -1,6 +1,14 @@
 package br.unirio.eleicao.votacao.unit;
 
 import br.unirio.eleicao.auth.service.AutenticacaoServico;
+import br.unirio.eleicao.shared.NaoEncontradoException;
+import br.unirio.eleicao.votacao.persistencia.Voto;
+import br.unirio.eleicao.votacao.persistencia.VotoRepository;
+import br.unirio.eleicao.votacao.persistencia.VotoPendente;
+import br.unirio.eleicao.votacao.persistencia.VotoPendenteId;
+import java.util.Optional;
+import org.mockito.ArgumentCaptor;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import br.unirio.eleicao.auth.service.UsuarioAutenticado;
 import br.unirio.eleicao.candidato.servico.CandidatoDto;
 import br.unirio.eleicao.candidato.servico.CandidatoServico;
@@ -35,6 +43,7 @@ class VotoServicoTest {
     @Mock private CandidatoServico candidatos;
     @Mock private VotoPendenteRepository pendentes;
     @Mock private ComparecimentoRepository comparecimentos;
+    @Mock private VotoRepository votos;
     @InjectMocks private VotoServico servico;
 
     private final NovoVoto dados = new NovoVoto(Cargo.GOVERNADOR, 15L);
@@ -99,6 +108,52 @@ class VotoServicoTest {
         when(autenticacao.usuarioAtual()).thenReturn(new UsuarioAutenticado(9L, Perfil.CANDIDATO));
         assertThrows(AccessDeniedException.class, () -> servico.registrar(7L, dados));
         verifyNoInteractions(eleitores, eleicoes, candidatos, pendentes, comparecimentos);
+    }
+
+    @Test
+    void confirmarSalvaVotoSemEleitorERemovePendente() {
+        VotoPendente pendente = prepararConfirmacao();
+        when(comparecimentos.inserirSeAusente(9L, 7L, 4L)).thenReturn(1);
+        servico.confirmar(7L, Cargo.GOVERNADOR);
+        ArgumentCaptor<Voto> salvo = ArgumentCaptor.forClass(Voto.class);
+        verify(votos).saveAndFlush(salvo.capture());
+        assertEquals(7L, salvo.getValue().getEleicaoId());
+        assertEquals(4L, salvo.getValue().getCargoId());
+        assertEquals(15L, salvo.getValue().getCandidatoId());
+        verify(pendentes).delete(pendente);
+        verify(pendentes).flush();
+    }
+
+    @Test
+    void confirmarConcorrenteNaoContabilizaDuasVezes() {
+        prepararConfirmacao();
+        assertThrows(ConflitoException.class, () -> servico.confirmar(7L, Cargo.GOVERNADOR));
+        verifyNoInteractions(votos);
+        verify(pendentes, never()).delete(any());
+    }
+
+    @Test
+    void confirmarVotoJaConfirmadoRetornaConflito() {
+        when(eleitores.existsById(9L)).thenReturn(true);
+        when(comparecimentos.existsById(new ComparecimentoId(9L, 7L, 4L))).thenReturn(true);
+        assertThrows(ConflitoException.class, () -> servico.confirmar(7L, Cargo.GOVERNADOR));
+        verifyNoInteractions(votos, pendentes);
+    }
+
+    @Test
+    void confirmarSemPendenteNaoCriaComparecimento() {
+        when(eleitores.existsById(9L)).thenReturn(true);
+        when(pendentes.findById(new VotoPendenteId(9L, 7L, 4L))).thenReturn(Optional.empty());
+        assertThrows(NaoEncontradoException.class, () -> servico.confirmar(7L, Cargo.GOVERNADOR));
+        verify(comparecimentos, never()).inserirSeAusente(anyLong(), anyLong(), anyLong());
+        verifyNoInteractions(votos);
+    }
+
+    private VotoPendente prepararConfirmacao() {
+        when(eleitores.existsById(9L)).thenReturn(true);
+        VotoPendente pendente = new VotoPendente(9L, 7L, 4L, 15L);
+        when(pendentes.findById(new VotoPendenteId(9L, 7L, 4L))).thenReturn(Optional.of(pendente));
+        return pendente;
     }
 
     private void prepararCandidatoValido() {
