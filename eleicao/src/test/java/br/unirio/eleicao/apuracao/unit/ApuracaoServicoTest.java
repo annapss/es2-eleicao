@@ -4,6 +4,8 @@ import br.unirio.eleicao.apuracao.persistencia.ApuracaoCandidato;
 import br.unirio.eleicao.apuracao.persistencia.ApuracaoRepository;
 import br.unirio.eleicao.apuracao.servico.ApuracaoServico;
 import br.unirio.eleicao.apuracao.servico.LinhaApuracao;
+import br.unirio.eleicao.apuracao.servico.ResultadoCargo;
+import br.unirio.eleicao.apuracao.servico.ResultadoFinal;
 import br.unirio.eleicao.auth.service.AutenticacaoServico;
 import br.unirio.eleicao.auth.service.UsuarioAutenticado;
 import br.unirio.eleicao.candidato.servico.CandidatoDto;
@@ -151,6 +153,47 @@ class ApuracaoServicoTest {
         assertThrows(RegraDeNegocioException.class, () -> servico.parcial(7L, null));
 
         verifyNoInteractions(candidatos, apuracao);
+    }
+
+    @Test
+    void resultadoAgrupaPorCargoNaOrdemOficial() {
+        ApuracaoCandidato senador = linha(2L, Cargo.SENADOR, 151, "Bia", "PXYZ", 4);
+        ApuracaoCandidato governador1 = linha(1L, Cargo.GOVERNADOR, 15, "Ana", "PTST", 3);
+        ApuracaoCandidato governador2 = linha(3L, Cargo.GOVERNADOR, 25, "Caio", "PXYZ", 1);
+        when(apuracao.listar(7L, null)).thenReturn(List.of(senador, governador1, governador2));
+
+        ResultadoFinal resultado = servico.resultado(7L);
+
+        assertEquals(7L, resultado.eleicaoId());
+        assertEquals(List.of(Cargo.values()), resultado.cargos().stream().map(ResultadoCargo::cargo).toList());
+        assertEquals(List.of(new LinhaApuracao(Cargo.SENADOR, 2L, 151, "Bia", "PXYZ", 4)),
+                resultado.cargos().get(2).candidatos());
+        assertEquals(List.of(
+                new LinhaApuracao(Cargo.GOVERNADOR, 1L, 15, "Ana", "PTST", 3),
+                new LinhaApuracao(Cargo.GOVERNADOR, 3L, 25, "Caio", "PXYZ", 1)),
+                resultado.cargos().get(3).candidatos());
+        assertTrue(resultado.cargos().get(0).candidatos().isEmpty());
+        verify(eleicao).exigirStatus(7L, StatusEleicao.ENCERRADA);
+    }
+
+    @Test
+    void resultadoNaoDependeDoPerfil() {
+        when(apuracao.listar(7L, null)).thenReturn(List.of());
+
+        servico.resultado(7L);
+
+        // Nenhuma restrição por perfil: o resultado final é igual para eleitor, candidato e chefe.
+        verifyNoInteractions(autenticacao, candidatos);
+    }
+
+    @Test
+    void resultadoExigeEleicaoEncerrada() {
+        doThrow(new RegraDeNegocioException("Eleição não está encerrada"))
+                .when(eleicao).exigirStatus(7L, StatusEleicao.ENCERRADA);
+
+        assertThrows(RegraDeNegocioException.class, () -> servico.resultado(7L));
+
+        verifyNoInteractions(apuracao);
     }
 
     private void concorre(Cargo cargo) {

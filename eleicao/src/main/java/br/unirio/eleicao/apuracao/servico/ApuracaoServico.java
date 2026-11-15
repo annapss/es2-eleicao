@@ -14,7 +14,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ApuracaoServico {
@@ -40,6 +43,25 @@ public class ApuracaoServico {
         eleicao.exigirStatus(eleicaoId, StatusEleicao.ABERTA);
         Cargo filtro = usuario.perfil() == Perfil.CANDIDATO ? cargoDoCandidato(usuario, eleicaoId, cargo) : cargo;
         return apuracao.listar(eleicaoId, filtro).stream().map(this::paraDto).toList();
+    }
+
+    // Resultado final, disponível apenas com a eleição ENCERRADA. Todos os perfis veem todos os
+    // cargos: a restrição do candidato vale só para o acompanhamento durante a votação.
+    // Todos os cargos aparecem, mesmo sem candidatos (lista vazia).
+    @Transactional(readOnly = true)
+    public ResultadoFinal resultado(Long eleicaoId) {
+        eleicao.exigirStatus(eleicaoId, StatusEleicao.ENCERRADA);
+        Map<Cargo, List<LinhaApuracao>> porCargo = new EnumMap<>(Cargo.class);
+        for (Cargo cargo : Cargo.values()) {
+            porCargo.put(cargo, new ArrayList<>());
+        }
+        for (ApuracaoCandidato linha : apuracao.listar(eleicaoId, null)) {
+            porCargo.get(linha.cargo()).add(paraDto(linha));
+        }
+        List<ResultadoCargo> cargos = porCargo.entrySet().stream()
+                .map(item -> new ResultadoCargo(item.getKey(), List.copyOf(item.getValue())))
+                .toList();
+        return new ResultadoFinal(eleicaoId, cargos);
     }
 
     // Sem filtro, o candidato recebe o próprio cargo. Pedir outro cargo, ou consultar uma eleição

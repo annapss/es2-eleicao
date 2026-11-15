@@ -254,6 +254,91 @@ class ApuracaoIntegrationTest {
         parcial(eleicao.id(), null, candidato).andExpect(status().isUnprocessableContent());
     }
 
+    @Test
+    void resultadoFinalAposEncerramento() throws Exception {
+        Long gov1 = candidato(eleicao, Cargo.GOVERNADOR, 15, "gov1");
+        Long gov2 = candidato(eleicao, Cargo.GOVERNADOR, 25, "gov2");
+        Long sen = candidato(eleicao, Cargo.SENADOR, 151, "sen");
+        eleicao.registrarAbertura(LocalDateTime.now());
+        votar(eleicao, Cargo.GOVERNADOR, gov2, 2);
+        votar(eleicao, Cargo.GOVERNADOR, gov1, 1);
+        votar(eleicao, Cargo.SENADOR, sen, 1);
+        eleicao.registrarEncerramento(LocalDateTime.now());
+
+        resultado(eleicao.id(), eleitor).andExpect(status().isOk())
+                .andExpect(jsonPath("$.eleicaoId").value(eleicao.id()))
+                .andExpect(jsonPath("$.cargos", hasSize(5)))
+                .andExpect(jsonPath("$.cargos[0].cargo").value("DEPUTADO_ESTADUAL"))
+                .andExpect(jsonPath("$.cargos[0].candidatos", hasSize(0)))
+                .andExpect(jsonPath("$.cargos[2].cargo").value("SENADOR"))
+                .andExpect(jsonPath("$.cargos[2].candidatos[0].candidatoId").value(sen))
+                .andExpect(jsonPath("$.cargos[2].candidatos[0].totalVotos").value(1))
+                .andExpect(jsonPath("$.cargos[3].cargo").value("GOVERNADOR"))
+                .andExpect(jsonPath("$.cargos[3].candidatos", hasSize(2)))
+                .andExpect(jsonPath("$.cargos[3].candidatos[0].candidatoId").value(gov2))
+                .andExpect(jsonPath("$.cargos[3].candidatos[0].candidato").value("gov2"))
+                .andExpect(jsonPath("$.cargos[3].candidatos[0].numero").value(25))
+                .andExpect(jsonPath("$.cargos[3].candidatos[0].partido").value("US21"))
+                .andExpect(jsonPath("$.cargos[3].candidatos[0].totalVotos").value(2))
+                .andExpect(jsonPath("$.cargos[3].candidatos[1].candidatoId").value(gov1))
+                .andExpect(jsonPath("$.cargos[3].candidatos[1].totalVotos").value(1))
+                .andExpect(jsonPath("$.cargos[4].cargo").value("PRESIDENTE"));
+    }
+
+    @Test
+    void candidatoEChefeVeemTodosOsCargosNoResultado() throws Exception {
+        candidato(eleicao, Cargo.GOVERNADOR, 15, "gov");
+        candidato(eleicao, Cargo.SENADOR, 151, "sen");
+        eleicao.registrarAbertura(LocalDateTime.now());
+        eleicao.registrarEncerramento(LocalDateTime.now());
+
+        for (String login : new String[]{"gov", "cs-us21"}) {
+            String token = ApoioTeste.bearer(mockMvc, login, "senha-teste");
+            resultado(eleicao.id(), token).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.cargos[2].candidatos", hasSize(1)))
+                    .andExpect(jsonPath("$.cargos[3].candidatos", hasSize(1)));
+        }
+    }
+
+    @Test
+    void resultadoNaoContaVotosDeOutraEleicao() throws Exception {
+        Eleicao outra = criarEleicao(2);
+        Long gov = candidato(eleicao, Cargo.GOVERNADOR, 15, "gov");
+        Long outroGov = candidato(outra, Cargo.GOVERNADOR, 15, "gov-t2");
+        eleicao.registrarAbertura(LocalDateTime.now());
+        outra.registrarAbertura(LocalDateTime.now());
+        votar(outra, Cargo.GOVERNADOR, outroGov, 3);
+        eleicao.registrarEncerramento(LocalDateTime.now());
+
+        resultado(eleicao.id(), eleitor).andExpect(status().isOk())
+                .andExpect(jsonPath("$.cargos[3].candidatos", hasSize(1)))
+                .andExpect(jsonPath("$.cargos[3].candidatos[0].candidatoId").value(gov))
+                .andExpect(jsonPath("$.cargos[3].candidatos[0].totalVotos").value(0));
+    }
+
+    @Test
+    void resultadoComEleicaoAgendadaOuAbertaRetorna422() throws Exception {
+        resultado(eleicao.id(), eleitor).andExpect(status().isUnprocessableContent());
+        eleicao.registrarAbertura(LocalDateTime.now());
+        resultado(eleicao.id(), eleitor).andExpect(status().isUnprocessableContent());
+    }
+
+    @Test
+    void resultadoDeEleicaoInexistenteRetorna404() throws Exception {
+        resultado(9999L, eleitor).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void resultadoExigeAutenticacao() throws Exception {
+        mockMvc.perform(get("/api/apuracao/eleicoes/{id}/resultado", eleicao.id()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private ResultActions resultado(Long eleicaoId, String token) throws Exception {
+        return mockMvc.perform(get("/api/apuracao/eleicoes/{id}/resultado", eleicaoId)
+                .header("Authorization", token));
+    }
+
     private ResultActions parcial(Long eleicaoId, String cargo, String token) throws Exception {
         var requisicao = get("/api/apuracao/eleicoes/{id}/parcial", eleicaoId).header("Authorization", token);
         if (cargo != null) {

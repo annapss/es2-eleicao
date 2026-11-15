@@ -2,6 +2,7 @@ package br.unirio.eleicao.apuracao.web;
 
 import br.unirio.eleicao.apuracao.servico.ApuracaoServico;
 import br.unirio.eleicao.apuracao.servico.LinhaApuracao;
+import br.unirio.eleicao.apuracao.servico.ResultadoFinal;
 import br.unirio.eleicao.shared.Cargo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,5 +35,15 @@ public class ApuracaoController {
     public List<LinhaApuracao> parcial(@PathVariable Long eleicaoId,
                                        @RequestParam(required = false) Cargo cargo) {
         return servico.parcial(eleicaoId, cargo);
+    }
+
+    @Operation(summary = "Consultar o resultado final",
+            description = "Disponível somente com a eleição ENCERRADA. Retorna todos os cargos, na ordem oficial, "
+                    + "cada um com seus candidatos (cargo, número, partido e votos), do mais votado para o menos "
+                    + "votado. Cargos sem candidatos vêm com lista vazia. Eleitor, Candidato e Chefe da Seção veem "
+                    + "todos os cargos. Eleição inexistente retorna 404; AGENDADA ou ABERTA retorna 422.")
+    @GetMapping("/eleicoes/{eleicaoId}/resultado")
+    public ResultadoFinal resultado(@PathVariable Long eleicaoId) {
+        return servico.resultado(eleicaoId);
     }
 }
