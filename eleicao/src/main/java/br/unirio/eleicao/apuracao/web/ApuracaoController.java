@@ -27,6 +27,8 @@ public class ApuracaoController {
             description = "Votos confirmados por candidato na eleição ABERTA, atualizados a cada consulta. "
                     + "Sem o filtro cargo, retorna todos os cargos, ordenados por cargo e por votos. "
                     + "Candidatos sem voto aparecem com zero. Votos pendentes não contam. "
+                    + "Eleitor e Chefe da Seção veem todos os cargos. O candidato vê apenas o cargo que disputa: "
+                    + "sem o filtro, recebe o próprio cargo; outro cargo, ou eleição em que não concorre, retorna 403. "
                     + "Eleição inexistente retorna 404; AGENDADA ou ENCERRADA retorna 422; cargo inválido 400.")
     @GetMapping("/eleicoes/{eleicaoId}/parcial")
     public List<LinhaApuracao> parcial(@PathVariable Long eleicaoId,

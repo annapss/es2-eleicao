@@ -3,6 +3,9 @@ package br.unirio.eleicao.apuracao.servico;
 import br.unirio.eleicao.apuracao.persistencia.ApuracaoCandidato;
 import br.unirio.eleicao.apuracao.persistencia.ApuracaoRepository;
 import br.unirio.eleicao.auth.service.AutenticacaoServico;
+import br.unirio.eleicao.auth.service.UsuarioAutenticado;
+import br.unirio.eleicao.candidato.servico.CandidatoDto;
+import br.unirio.eleicao.candidato.servico.CandidatoServico;
 import br.unirio.eleicao.eleicao.servico.EleicaoServico;
 import br.unirio.eleicao.shared.Cargo;
 import br.unirio.eleicao.shared.Perfil;
@@ -17,24 +20,38 @@ import java.util.List;
 public class ApuracaoServico {
     private final ApuracaoRepository apuracao;
     private final EleicaoServico eleicao;
+    private final CandidatoServico candidatos;
     private final AutenticacaoServico autenticacao;
 
-    public ApuracaoServico(ApuracaoRepository apuracao, EleicaoServico eleicao, AutenticacaoServico autenticacao) {
+    public ApuracaoServico(ApuracaoRepository apuracao, EleicaoServico eleicao, CandidatoServico candidatos,
+                           AutenticacaoServico autenticacao) {
         this.apuracao = apuracao;
         this.eleicao = eleicao;
+        this.candidatos = candidatos;
         this.autenticacao = autenticacao;
     }
 
     // Placar parcial da eleição ABERTA: votos confirmados por candidato, de todos os cargos
     // ou de um cargo específico. É calculado a cada consulta, então sempre reflete os votos atuais.
+    // Eleitor e Chefe da Seção veem qualquer cargo; o candidato vê apenas o cargo que disputa.
     @Transactional(readOnly = true)
     public List<LinhaApuracao> parcial(Long eleicaoId, Cargo cargo) {
-        if (autenticacao.usuarioAtual().perfil() == Perfil.CANDIDATO) {
-            // O acompanhamento restrito ao próprio cargo do candidato é a US-22.
-            throw new AccessDeniedException("Acompanhamento do candidato ainda não disponível");
-        }
+        UsuarioAutenticado usuario = autenticacao.usuarioAtual();
         eleicao.exigirStatus(eleicaoId, StatusEleicao.ABERTA);
-        return apuracao.listar(eleicaoId, cargo).stream().map(this::paraDto).toList();
+        Cargo filtro = usuario.perfil() == Perfil.CANDIDATO ? cargoDoCandidato(usuario, eleicaoId, cargo) : cargo;
+        return apuracao.listar(eleicaoId, filtro).stream().map(this::paraDto).toList();
+    }
+
+    // Sem filtro, o candidato recebe o próprio cargo. Pedir outro cargo, ou consultar uma eleição
+    // em que não concorre, retorna 403.
+    private Cargo cargoDoCandidato(UsuarioAutenticado usuario, Long eleicaoId, Cargo pedido) {
+        Cargo proprio = candidatos.buscarPorUsuario(usuario.id(), eleicaoId)
+                .map(CandidatoDto::cargo)
+                .orElseThrow(() -> new AccessDeniedException("Candidato não concorre nesta eleição"));
+        if (pedido != null && pedido != proprio) {
+            throw new AccessDeniedException("Candidato só acompanha o cargo que disputa");
+        }
+        return proprio;
     }
 
     private LinhaApuracao paraDto(ApuracaoCandidato linha) {

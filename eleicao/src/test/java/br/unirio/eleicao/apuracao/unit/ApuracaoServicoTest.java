@@ -6,6 +6,8 @@ import br.unirio.eleicao.apuracao.servico.ApuracaoServico;
 import br.unirio.eleicao.apuracao.servico.LinhaApuracao;
 import br.unirio.eleicao.auth.service.AutenticacaoServico;
 import br.unirio.eleicao.auth.service.UsuarioAutenticado;
+import br.unirio.eleicao.candidato.servico.CandidatoDto;
+import br.unirio.eleicao.candidato.servico.CandidatoServico;
 import br.unirio.eleicao.eleicao.servico.EleicaoServico;
 import br.unirio.eleicao.shared.Cargo;
 import br.unirio.eleicao.shared.NaoEncontradoException;
@@ -20,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -28,6 +31,7 @@ import static org.mockito.Mockito.*;
 class ApuracaoServicoTest {
     @Mock private ApuracaoRepository apuracao;
     @Mock private EleicaoServico eleicao;
+    @Mock private CandidatoServico candidatos;
     @Mock private AutenticacaoServico autenticacao;
     @InjectMocks private ApuracaoServico servico;
 
@@ -87,12 +91,71 @@ class ApuracaoServicoTest {
     }
 
     @Test
-    void candidatoAindaNaoAcompanha() {
+    void eleitorNaoPrecisaConsultarCandidatura() {
+        logado(Perfil.ELEITOR);
+        when(apuracao.listar(7L, Cargo.SENADOR)).thenReturn(List.of());
+
+        servico.parcial(7L, Cargo.SENADOR);
+
+        verifyNoInteractions(candidatos);
+    }
+
+    @Test
+    void candidatoSemFiltroRecebeOProprioCargo() {
         logado(Perfil.CANDIDATO);
+        concorre(Cargo.GOVERNADOR);
+        ApuracaoCandidato governador = linha(1L, Cargo.GOVERNADOR, 15, "Ana", "PTST", 3);
+        when(apuracao.listar(7L, Cargo.GOVERNADOR)).thenReturn(List.of(governador));
+
+        List<LinhaApuracao> resultado = servico.parcial(7L, null);
+
+        assertEquals(List.of(new LinhaApuracao(Cargo.GOVERNADOR, 1L, 15, "Ana", "PTST", 3)), resultado);
+        verify(apuracao, never()).listar(7L, null);
+    }
+
+    @Test
+    void candidatoPodePedirOProprioCargo() {
+        logado(Perfil.CANDIDATO);
+        concorre(Cargo.GOVERNADOR);
+        when(apuracao.listar(7L, Cargo.GOVERNADOR)).thenReturn(List.of());
+
+        assertTrue(servico.parcial(7L, Cargo.GOVERNADOR).isEmpty());
+    }
+
+    @Test
+    void candidatoNaoVeOutroCargo() {
+        logado(Perfil.CANDIDATO);
+        concorre(Cargo.GOVERNADOR);
+
+        assertThrows(AccessDeniedException.class, () -> servico.parcial(7L, Cargo.PRESIDENTE));
+
+        verifyNoInteractions(apuracao);
+    }
+
+    @Test
+    void candidatoNaoVeEleicaoEmQueNaoConcorre() {
+        logado(Perfil.CANDIDATO);
+        when(candidatos.buscarPorUsuario(1L, 7L)).thenReturn(Optional.empty());
 
         assertThrows(AccessDeniedException.class, () -> servico.parcial(7L, null));
 
-        verifyNoInteractions(eleicao, apuracao);
+        verifyNoInteractions(apuracao);
+    }
+
+    @Test
+    void candidatoTambemExigeEleicaoAberta() {
+        logado(Perfil.CANDIDATO);
+        doThrow(new RegraDeNegocioException("Eleição não está aberta"))
+                .when(eleicao).exigirStatus(7L, StatusEleicao.ABERTA);
+
+        assertThrows(RegraDeNegocioException.class, () -> servico.parcial(7L, null));
+
+        verifyNoInteractions(candidatos, apuracao);
+    }
+
+    private void concorre(Cargo cargo) {
+        when(candidatos.buscarPorUsuario(1L, 7L))
+                .thenReturn(Optional.of(new CandidatoDto(1L, "Ana", 15, "PTST", cargo, 7L)));
     }
 
     private void logado(Perfil perfil) {
