@@ -47,16 +47,12 @@ public class VotoServico {
 
     @Transactional
     public void registrar(Long eleicaoId, NovoVoto dados) {
-        var usuario = exigirEleitor();
-        eleicoes.exigirStatus(eleicaoId, StatusEleicao.ABERTA);
+        var usuario = exigirVotacaoPermitida(eleicaoId, dados.cargo());
         CandidatoDto candidato = candidatos.buscar(dados.candidatoId());
         if (!candidato.eleicaoId().equals(eleicaoId) || candidato.cargo() != dados.cargo()) {
             throw new RegraDeNegocioException("Candidato deve pertencer ao cargo e à eleição informados");
         }
         Long cargoId = dados.cargo().getId();
-        if (comparecimentos.existsById(new ComparecimentoId(usuario.id(), eleicaoId, cargoId))) {
-            throw new ConflitoException("Voto já confirmado para este cargo nesta eleição");
-        }
         // Cada eleição possui seu próprio turno; eleicaoId identifica ambos.
         if (pendentes.inserirSeAusente(usuario.id(), eleicaoId, cargoId, dados.candidatoId()) == 0) {
             throw new ConflitoException("Voto já registrado para este cargo nesta eleição");
@@ -65,13 +61,8 @@ public class VotoServico {
 
     @Transactional
     public void confirmar(Long eleicaoId, Cargo cargo) {
-        var usuario = exigirEleitor();
-        eleicoes.exigirStatus(eleicaoId, StatusEleicao.ABERTA);
+        var usuario = exigirVotacaoPermitida(eleicaoId, cargo);
         Long cargoId = cargo.getId();
-        ComparecimentoId comparecimentoId = new ComparecimentoId(usuario.id(), eleicaoId, cargoId);
-        if (comparecimentos.existsById(comparecimentoId)) {
-            throw new ConflitoException("Voto já confirmado para este cargo nesta eleição");
-        }
         var pendente = pendentes.findById(new VotoPendenteId(usuario.id(), eleicaoId, cargoId))
                 .orElseThrow(() -> new NaoEncontradoException("Voto pendente não encontrado para este cargo"));
         if (comparecimentos.inserirSeAusente(usuario.id(), eleicaoId, cargoId) == 0) {
@@ -80,6 +71,15 @@ public class VotoServico {
         votos.saveAndFlush(new Voto(eleicaoId, cargoId, pendente.getCandidatoId()));
         pendentes.delete(pendente);
         pendentes.flush();
+    }
+
+    private UsuarioAutenticado exigirVotacaoPermitida(Long eleicaoId, Cargo cargo) {
+        var usuario = exigirEleitor();
+        eleicoes.exigirStatus(eleicaoId, StatusEleicao.ABERTA);
+        if (comparecimentos.existsById(new ComparecimentoId(usuario.id(), eleicaoId, cargo.getId()))) {
+            throw new ConflitoException("Voto já confirmado para este cargo nesta eleição");
+        }
+        return usuario;
     }
 
     private UsuarioAutenticado exigirEleitor() {
