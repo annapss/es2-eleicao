@@ -30,3 +30,30 @@ um novo candidato, inclusive se esse candidato nao existir.
 
 Os testes de integracao verificam o banco e o placar apos as rejeicoes, para todos
 os cinco cargos. Nenhum endpoint adicional e necessario para US-19.
+
+## Sigilo do voto (US-20)
+
+- `comparecimento` registra eleitor, eleicao/turno e cargo, sem candidato ou id do voto.
+- `voto` guarda apenas um id aleatorio, eleicao, cargo e candidato; nao guarda eleitor,
+  usuario, comparecimento ou horario de confirmacao. Nao ha chave estrangeira entre
+  `comparecimento` e `voto`.
+- `voto_pendente` associa temporariamente o eleitor a escolha durante o fluxo em duas
+  etapas. A confirmacao remove esse registro na mesma transacao que grava o voto e
+  o comparecimento. Uma falha desfaz as tres operacoes e permite tentar novamente.
+- Registro e confirmacao retornam corpos vazios, sem id de voto, candidato ou recibo
+  que ligue eleitor a escolha. Nenhum perfil, incluindo o chefe, possui endpoint
+  de consulta ao voto ou pendente de um eleitor. A consulta de candidatos continua disponivel.
+- O pedido de voto tem representacao textual redigida. A configuracao padrao desativa
+  detalhes de corpos HTTP e SQL, inclusive parametros, para evitar expor escolhas em logs.
+
+A separacao e uma garantia do modelo de dados confirmado e da API. O pendente ainda
+contem a escolha antes da confirmacao; acesso direto ao banco, backups e correlacao
+externa nao sao anonimizados por esse mecanismo.
+
+### Verificacao
+
+No Swagger, registrar e confirmar devem retornar 201 e 204 com corpo vazio.
+Nao existe operacao GET para consultar escolhas individuais. Os testes
+`SigiloVotoIntegrationTest` verificam a estrutura SQLite real, a ausencia de consultas,
+as respostas vazias e a remocao dos pendentes apos duas confirmacoes de eleitores diferentes.
+`SigiloVotoTest` verifica que a representacao textual do pedido nao revela a escolha.
