@@ -128,15 +128,3 @@ JOIN    cargo   cg ON cg.id = c.cargo_id
 JOIN    partido p  ON p.id  = c.partido_id
 LEFT JOIN voto  v  ON v.candidato_id = c.id
 GROUP BY c.eleicao_id, c.cargo_id, cg.nome, cg.ordem, c.id, c.numero, c.nome, c.data_nascimento, p.sigla;
-
-CREATE VIEW IF NOT EXISTS vw_resultado_final AS
-SELECT  r.*,
-        (r.posicao = 1 AND r.total_votos > 0) AS mais_votado
-FROM (
-    SELECT  a.*,
-            RANK() OVER (PARTITION BY a.eleicao_id, a.cargo_id
-                         ORDER BY a.total_votos DESC) AS posicao
-    FROM    vw_apuracao a
-    JOIN    eleicao e ON e.id = a.eleicao_id
-    WHERE   e.status = 'ENCERRADA'
-) r;
