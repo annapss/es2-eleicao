@@ -17,28 +17,16 @@ public class ComparecimentoId implements Serializable {
         this.cargoId = cargoId;
     }
 
-    public Long getEleitorId() {
+    public Long eleitorId() {
         return eleitorId;
     }
 
-    public void setEleitorId(Long eleitorId) {
-        this.eleitorId = eleitorId;
-    }
-
-    public Long getEleicaoId() {
+    public Long eleicaoId() {
         return eleicaoId;
     }
 
-    public void setEleicaoId(Long eleicaoId) {
-        this.eleicaoId = eleicaoId;
-    }
-
-    public Long getCargoId() {
+    public Long cargoId() {
         return cargoId;
-    }
-
-    public void setCargoId(Long cargoId) {
-        this.cargoId = cargoId;
     }
 
     @Override

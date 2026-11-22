@@ -7,7 +7,6 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
-// Estende Repository (e não JpaRepository) para não expor save/delete: a view é somente leitura.
 public interface ApuracaoRepository extends Repository<ApuracaoCandidato, Long> {
     @Query("select a from ApuracaoCandidato a where a.eleicaoId = :eleicaoId"
             + " and (:cargo is null or a.cargo = :cargo)"

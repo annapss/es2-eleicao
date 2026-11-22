@@ -40,35 +40,19 @@ public class Voto {
         }
     }
 
-    public String getId() {
+    public String id() {
         return id;
     }
 
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public Long getEleicaoId() {
+    public Long eleicaoId() {
         return eleicaoId;
     }
 
-    public void setEleicaoId(Long eleicaoId) {
-        this.eleicaoId = eleicaoId;
-    }
-
-    public Long getCargoId() {
+    public Long cargoId() {
         return cargoId;
     }
 
-    public void setCargoId(Long cargoId) {
-        this.cargoId = cargoId;
-    }
-
-    public Long getCandidatoId() {
+    public Long candidatoId() {
         return candidatoId;
-    }
-
-    public void setCandidatoId(Long candidatoId) {
-        this.candidatoId = candidatoId;
     }
 }

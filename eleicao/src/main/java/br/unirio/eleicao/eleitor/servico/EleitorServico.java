@@ -42,6 +42,11 @@ public class EleitorServico {
     }
 
     @Transactional
+    public boolean existe(Long id) {
+        return repositorio.existsById(id);
+    }
+
+    @Transactional
     public List<EleitorDto> listar() {
         return repositorio.findAll().stream().map(this::paraDto).toList();
     }

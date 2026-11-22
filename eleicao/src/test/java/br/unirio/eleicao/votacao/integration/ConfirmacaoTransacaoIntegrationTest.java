@@ -81,7 +81,7 @@ class ConfirmacaoTransacaoIntegrationTest {
         assertEquals(0L, comparecimentos.count());
         assertEquals(0L, votos.count());
         assertEquals(candidato, pendentes.findById(new VotoPendenteId(eleitor, eleicaoId, 4L))
-                .orElseThrow().getCandidatoId());
+                .orElseThrow().candidatoId());
         reset(votos);
         // Falha depois de salvar o voto tambem deve desfazer o voto e o comparecimento.
         doThrow(new IllegalStateException("Falha simulada ao remover pendente")).when(pendentes).flush();

@@ -52,43 +52,23 @@ public class VotoPendente {
         }
     }
 
-    public Long getEleitorId() {
+    public Long eleitorId() {
         return eleitorId;
     }
 
-    public void setEleitorId(Long eleitorId) {
-        this.eleitorId = eleitorId;
-    }
-
-    public Long getEleicaoId() {
+    public Long eleicaoId() {
         return eleicaoId;
     }
 
-    public void setEleicaoId(Long eleicaoId) {
-        this.eleicaoId = eleicaoId;
-    }
-
-    public Long getCargoId() {
+    public Long cargoId() {
         return cargoId;
     }
 
-    public void setCargoId(Long cargoId) {
-        this.cargoId = cargoId;
-    }
-
-    public Long getCandidatoId() {
+    public Long candidatoId() {
         return candidatoId;
     }
 
-    public void setCandidatoId(Long candidatoId) {
-        this.candidatoId = candidatoId;
-    }
-
-    public LocalDateTime getRegistradoEm() {
+    public LocalDateTime registradoEm() {
         return registradoEm;
-    }
-
-    public void setRegistradoEm(LocalDateTime registradoEm) {
-        this.registradoEm = registradoEm;
     }
 }

@@ -5,7 +5,7 @@ import br.unirio.eleicao.auth.service.UsuarioAutenticado;
 import br.unirio.eleicao.candidato.servico.CandidatoDto;
 import br.unirio.eleicao.candidato.servico.CandidatoServico;
 import br.unirio.eleicao.eleicao.servico.EleicaoServico;
-import br.unirio.eleicao.eleitor.persistencia.EleitorRepository;
+import br.unirio.eleicao.eleitor.servico.EleitorServico;
 import br.unirio.eleicao.shared.Cargo;
 import br.unirio.eleicao.shared.ConflitoException;
 import br.unirio.eleicao.shared.NaoEncontradoException;
@@ -25,14 +25,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class VotoServico {
     private final AutenticacaoServico autenticacao;
-    private final EleitorRepository eleitores;
+    private final EleitorServico eleitores;
     private final EleicaoServico eleicoes;
     private final CandidatoServico candidatos;
     private final VotoPendenteRepository pendentes;
     private final ComparecimentoRepository comparecimentos;
     private final VotoRepository votos;
 
-    public VotoServico(AutenticacaoServico autenticacao, EleitorRepository eleitores,
+    public VotoServico(AutenticacaoServico autenticacao, EleitorServico eleitores,
                        EleicaoServico eleicoes, CandidatoServico candidatos,
                        VotoPendenteRepository pendentes, ComparecimentoRepository comparecimentos,
                        VotoRepository votos) {
@@ -53,7 +53,6 @@ public class VotoServico {
             throw new RegraDeNegocioException("Candidato deve pertencer ao cargo e à eleição informados");
         }
         Long cargoId = dados.cargo().getId();
-        // Cada eleição possui seu próprio turno; eleicaoId identifica ambos.
         if (pendentes.inserirSeAusente(usuario.id(), eleicaoId, cargoId, dados.candidatoId()) == 0) {
             throw new ConflitoException("Voto já registrado para este cargo nesta eleição");
         }
@@ -68,7 +67,7 @@ public class VotoServico {
         if (comparecimentos.inserirSeAusente(usuario.id(), eleicaoId, cargoId) == 0) {
             throw new ConflitoException("Voto já confirmado para este cargo nesta eleição");
         }
-        votos.saveAndFlush(new Voto(eleicaoId, cargoId, pendente.getCandidatoId()));
+        votos.saveAndFlush(new Voto(eleicaoId, cargoId, pendente.candidatoId()));
         pendentes.delete(pendente);
         pendentes.flush();
     }
@@ -84,7 +83,7 @@ public class VotoServico {
 
     private UsuarioAutenticado exigirEleitor() {
         var usuario = autenticacao.usuarioAtual();
-        if (usuario.perfil() != Perfil.ELEITOR || !eleitores.existsById(usuario.id())) {
+        if (usuario.perfil() != Perfil.ELEITOR || !eleitores.existe(usuario.id())) {
             throw new AccessDeniedException("Apenas eleitores cadastrados podem votar");
         }
         return usuario;

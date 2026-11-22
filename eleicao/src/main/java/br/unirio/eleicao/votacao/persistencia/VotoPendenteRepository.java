@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface VotoPendenteRepository extends JpaRepository<VotoPendente, VotoPendenteId> {
-    // A chave composta impede duplicidade sem substituir uma escolha existente.
     @Modifying(flushAutomatically = true)
     @Query(value = "insert into voto_pendente (eleitor_id, eleicao_id, cargo_id, candidato_id) "
             + "values (:eleitorId, :eleicaoId, :cargoId, :candidatoId) "

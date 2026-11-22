@@ -48,35 +48,19 @@ public class Comparecimento {
         }
     }
 
-    public Long getEleitorId() {
+    public Long eleitorId() {
         return eleitorId;
     }
 
-    public void setEleitorId(Long eleitorId) {
-        this.eleitorId = eleitorId;
-    }
-
-    public Long getEleicaoId() {
+    public Long eleicaoId() {
         return eleicaoId;
     }
 
-    public void setEleicaoId(Long eleicaoId) {
-        this.eleicaoId = eleicaoId;
-    }
-
-    public Long getCargoId() {
+    public Long cargoId() {
         return cargoId;
     }
 
-    public void setCargoId(Long cargoId) {
-        this.cargoId = cargoId;
-    }
-
-    public LocalDateTime getVotouEm() {
+    public LocalDateTime votouEm() {
         return votouEm;
-    }
-
-    public void setVotouEm(LocalDateTime votouEm) {
-        this.votouEm = votouEm;
     }
 }

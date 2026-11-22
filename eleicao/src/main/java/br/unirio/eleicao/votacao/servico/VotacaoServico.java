@@ -23,7 +23,7 @@ public class VotacaoServico {
         this.candidatos = candidatos;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Map<Cargo, List<CandidatoDto>> listarCandidatos(Long eleicaoId) {
         eleicao.exigirStatus(eleicaoId, StatusEleicao.ABERTA);
         Map<Cargo, List<CandidatoDto>> porCargo = new EnumMap<>(Cargo.class);

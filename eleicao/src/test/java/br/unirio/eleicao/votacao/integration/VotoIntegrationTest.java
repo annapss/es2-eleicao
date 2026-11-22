@@ -80,8 +80,8 @@ class VotoIntegrationTest {
         entityManager.flush();
         entityManager.clear();
         VotoPendente voto = pendentes.findById(new VotoPendenteId(eleitorId, eleicao.id(), 4L)).orElseThrow();
-        assertEquals(id, voto.getCandidatoId());
-        assertNotNull(voto.getRegistradoEm());
+        assertEquals(id, voto.candidatoId());
+        assertNotNull(voto.registradoEm());
         assertEquals(0L, comparecimentos.count());
         assertEquals(0, ((Number) entityManager.createNativeQuery("select count(*) from voto")
                 .getSingleResult()).intValue());
@@ -98,7 +98,7 @@ class VotoIntegrationTest {
         entityManager.clear();
         assertEquals(1L, pendentes.count());
         assertEquals(primeiro, pendentes.findById(new VotoPendenteId(eleitorId, eleicao.id(), 4L))
-                .orElseThrow().getCandidatoId());
+                .orElseThrow().candidatoId());
     }
 
     @Test
@@ -205,14 +205,14 @@ class VotoIntegrationTest {
         assertEquals(0L, pendentes.count());
         assertEquals(1L, comparecimentos.count());
         var comparecimento = comparecimentos.findAll().getFirst();
-        assertEquals(eleitorId, comparecimento.getEleitorId());
-        assertEquals(eleicao.id(), comparecimento.getEleicaoId());
-        assertEquals(4L, comparecimento.getCargoId());
-        assertNotNull(comparecimento.getVotouEm());
+        assertEquals(eleitorId, comparecimento.eleitorId());
+        assertEquals(eleicao.id(), comparecimento.eleicaoId());
+        assertEquals(4L, comparecimento.cargoId());
+        assertNotNull(comparecimento.votouEm());
         var voto = votos.findAll().getFirst();
-        assertEquals(id, voto.getCandidatoId());
-        assertEquals(eleicao.id(), voto.getEleicaoId());
-        assertEquals(4L, voto.getCargoId());
+        assertEquals(id, voto.candidatoId());
+        assertEquals(eleicao.id(), voto.eleicaoId());
+        assertEquals(4L, voto.cargoId());
         assertEquals(1, totalApurado(id));
     }
 
@@ -239,7 +239,7 @@ class VotoIntegrationTest {
         registrar(eleicao.id(), "SENADOR", senador).andExpect(status().isCreated());
         confirmar(eleicao.id(), "GOVERNADOR").andExpect(status().isNoContent());
         assertEquals(1L, pendentes.count());
-        assertEquals(senador, pendentes.findAll().getFirst().getCandidatoId());
+        assertEquals(senador, pendentes.findAll().getFirst().candidatoId());
         assertEquals(1, totalApurado(governador));
         assertEquals(0, totalApurado(senador));
         confirmar(eleicao.id(), "SENADOR").andExpect(status().isNoContent());
@@ -323,22 +323,22 @@ class VotoIntegrationTest {
         entityManager.flush();
         entityManager.clear();
         var chave = new VotoPendenteId(eleitorId, eleicao.id(), cargo.getId());
-        var registradoEm = pendentes.findById(chave).orElseThrow().getRegistradoEm();
+        var registradoEm = pendentes.findById(chave).orElseThrow().registradoEm();
 
         registrar(eleicao.id(), cargo.name(), primeiro).andExpect(status().isConflict());
         registrar(eleicao.id(), cargo.name(), segundo).andExpect(status().isConflict());
         entityManager.clear();
         var pendente = pendentes.findById(chave).orElseThrow();
-        assertEquals(primeiro, pendente.getCandidatoId());
-        assertEquals(registradoEm, pendente.getRegistradoEm());
+        assertEquals(primeiro, pendente.candidatoId());
+        assertEquals(registradoEm, pendente.registradoEm());
         assertEquals(1L, pendentes.count());
         assertEquals(0L, votos.count());
         assertEquals(0L, comparecimentos.count());
 
         confirmar(eleicao.id(), cargo.name()).andExpect(status().isNoContent());
         entityManager.clear();
-        String votoId = votos.findAll().getFirst().getId();
-        var votouEm = comparecimentos.findAll().getFirst().getVotouEm();
+        String votoId = votos.findAll().getFirst().id();
+        var votouEm = comparecimentos.findAll().getFirst().votouEm();
         registrar(eleicao.id(), cargo.name(), primeiro).andExpect(status().isConflict());
         registrar(eleicao.id(), cargo.name(), segundo).andExpect(status().isConflict());
         // A imutabilidade tambem bloqueia uma tentativa com candidato inexistente.
@@ -348,9 +348,9 @@ class VotoIntegrationTest {
         assertEquals(0L, pendentes.count());
         assertEquals(1L, votos.count());
         assertEquals(1L, comparecimentos.count());
-        assertEquals(votoId, votos.findAll().getFirst().getId());
-        assertEquals(primeiro, votos.findById(votoId).orElseThrow().getCandidatoId());
-        assertEquals(votouEm, comparecimentos.findAll().getFirst().getVotouEm());
+        assertEquals(votoId, votos.findAll().getFirst().id());
+        assertEquals(primeiro, votos.findById(votoId).orElseThrow().candidatoId());
+        assertEquals(votouEm, comparecimentos.findAll().getFirst().votouEm());
         assertEquals(1, totalApurado(primeiro));
         assertEquals(0, totalApurado(segundo));
     }

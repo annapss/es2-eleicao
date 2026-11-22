@@ -14,7 +14,7 @@ import br.unirio.eleicao.auth.service.UsuarioAutenticado;
 import br.unirio.eleicao.candidato.servico.CandidatoDto;
 import br.unirio.eleicao.candidato.servico.CandidatoServico;
 import br.unirio.eleicao.eleicao.servico.EleicaoServico;
-import br.unirio.eleicao.eleitor.persistencia.EleitorRepository;
+import br.unirio.eleicao.eleitor.servico.EleitorServico;
 import br.unirio.eleicao.shared.Cargo;
 import br.unirio.eleicao.shared.ConflitoException;
 import br.unirio.eleicao.shared.Perfil;
@@ -41,7 +41,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class VotoServicoTest {
     @Mock private AutenticacaoServico autenticacao;
-    @Mock private EleitorRepository eleitores;
+    @Mock private EleitorServico eleitores;
     @Mock private EleicaoServico eleicoes;
     @Mock private CandidatoServico candidatos;
     @Mock private VotoPendenteRepository pendentes;
@@ -73,7 +73,7 @@ class VotoServicoTest {
 
     @Test
     void votoConfirmadoNaoCriaPendente() {
-        when(eleitores.existsById(9L)).thenReturn(true);
+        when(eleitores.existe(9L)).thenReturn(true);
         when(comparecimentos.existsById(new ComparecimentoId(9L, 7L, 4L))).thenReturn(true);
         assertThrows(ConflitoException.class, () -> servico.registrar(7L, dados));
         verifyNoInteractions(candidatos, pendentes, votos);
@@ -81,7 +81,7 @@ class VotoServicoTest {
 
     @Test
     void candidatoIncompativelNaoCriaPendente() {
-        when(eleitores.existsById(9L)).thenReturn(true);
+        when(eleitores.existe(9L)).thenReturn(true);
         for (CandidatoDto candidato : new CandidatoDto[]{
                 new CandidatoDto(15L, "Ana", 15, "TEST", Cargo.SENADOR, 7L, LocalDate.of(1970, 1, 1)),
                 new CandidatoDto(15L, "Ana", 15, "TEST", Cargo.GOVERNADOR, 8L, LocalDate.of(1970, 1, 1))}) {
@@ -93,7 +93,7 @@ class VotoServicoTest {
 
     @Test
     void eleicaoNaoAbertaNaoConsultaCandidatos() {
-        when(eleitores.existsById(9L)).thenReturn(true);
+        when(eleitores.existe(9L)).thenReturn(true);
         doThrow(new RegraDeNegocioException("Eleicao nao aberta"))
                 .when(eleicoes).exigirStatus(7L, StatusEleicao.ABERTA);
         assertThrows(RegraDeNegocioException.class, () -> servico.registrar(7L, dados));
@@ -120,9 +120,9 @@ class VotoServicoTest {
         servico.confirmar(7L, Cargo.GOVERNADOR);
         ArgumentCaptor<Voto> salvo = ArgumentCaptor.forClass(Voto.class);
         verify(votos).saveAndFlush(salvo.capture());
-        assertEquals(7L, salvo.getValue().getEleicaoId());
-        assertEquals(4L, salvo.getValue().getCargoId());
-        assertEquals(15L, salvo.getValue().getCandidatoId());
+        assertEquals(7L, salvo.getValue().eleicaoId());
+        assertEquals(4L, salvo.getValue().cargoId());
+        assertEquals(15L, salvo.getValue().candidatoId());
         verify(pendentes).delete(pendente);
         verify(pendentes).flush();
     }
@@ -137,7 +137,7 @@ class VotoServicoTest {
 
     @Test
     void confirmarVotoJaConfirmadoRetornaConflito() {
-        when(eleitores.existsById(9L)).thenReturn(true);
+        when(eleitores.existe(9L)).thenReturn(true);
         when(comparecimentos.existsById(new ComparecimentoId(9L, 7L, 4L))).thenReturn(true);
         assertThrows(ConflitoException.class, () -> servico.confirmar(7L, Cargo.GOVERNADOR));
         verifyNoInteractions(votos, pendentes);
@@ -145,7 +145,7 @@ class VotoServicoTest {
 
     @Test
     void confirmarSemPendenteNaoCriaComparecimento() {
-        when(eleitores.existsById(9L)).thenReturn(true);
+        when(eleitores.existe(9L)).thenReturn(true);
         when(pendentes.findById(new VotoPendenteId(9L, 7L, 4L))).thenReturn(Optional.empty());
         assertThrows(NaoEncontradoException.class, () -> servico.confirmar(7L, Cargo.GOVERNADOR));
         verify(comparecimentos, never()).inserirSeAusente(anyLong(), anyLong(), anyLong());
@@ -164,7 +164,7 @@ class VotoServicoTest {
     @ParameterizedTest
     @EnumSource(value = StatusEleicao.class, names = {"AGENDADA", "ENCERRADA"})
     void eleicaoNaoAbertaBloqueiaRegistroEConfirmacaoAntesDeAcessarVotos(StatusEleicao status) {
-        when(eleitores.existsById(9L)).thenReturn(true);
+        when(eleitores.existe(9L)).thenReturn(true);
         doThrow(new RegraDeNegocioException("Eleicao esta " + status))
                 .when(eleicoes).exigirStatus(7L, StatusEleicao.ABERTA);
         assertThrows(RegraDeNegocioException.class, () -> servico.registrar(7L, dados));
@@ -179,14 +179,14 @@ class VotoServicoTest {
     }
 
     private VotoPendente prepararConfirmacao() {
-        when(eleitores.existsById(9L)).thenReturn(true);
+        when(eleitores.existe(9L)).thenReturn(true);
         VotoPendente pendente = new VotoPendente(9L, 7L, 4L, 15L);
         when(pendentes.findById(new VotoPendenteId(9L, 7L, 4L))).thenReturn(Optional.of(pendente));
         return pendente;
     }
 
     private void prepararCandidatoValido() {
-        when(eleitores.existsById(9L)).thenReturn(true);
+        when(eleitores.existe(9L)).thenReturn(true);
         when(candidatos.buscar(15L)).thenReturn(
                 new CandidatoDto(15L, "Ana", 15, "TEST", Cargo.GOVERNADOR, 7L, LocalDate.of(1970, 1, 1)));
     }

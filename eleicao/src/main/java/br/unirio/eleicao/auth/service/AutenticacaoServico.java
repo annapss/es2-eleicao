@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AutenticacaoServico {
     private final UsuarioRepository repo;
     private final PasswordEncoder encoder;
-    private final TokenJwt jwt;   // classe package-private do módulo
+    private final TokenJwt jwt;
 
     public AutenticacaoServico(UsuarioRepository repo, PasswordEncoder encoder, TokenJwt jwt) {
         this.repo = repo;
@@ -23,16 +23,14 @@ public class AutenticacaoServico {
 
     public String login(String login, String senha) {
         Usuario u = repo.findByLoginAndAtivoTrue(login)
-            .filter(x -> encoder.matches(senha, x.getSenhaHash()))
+            .filter(x -> encoder.matches(senha, x.senhaHash()))
             .orElseThrow(CredenciaisInvalidasException::new);
-        return jwt.gerar(u.getId(), u.getPerfil());
+        return jwt.gerar(u.id(), u.perfil());
     }
 
     @Transactional
     public Long criarConta(String login, String senha, Perfil perfil) {
-        Usuario u = new Usuario();
-        u.setLogin(login); u.setSenhaHash(encoder.encode(senha)); u.setPerfil(perfil);
-        return repo.save(u).getId();
+        return repo.save(new Usuario(login, encoder.encode(senha), perfil)).id();
     }
 
     @Transactional

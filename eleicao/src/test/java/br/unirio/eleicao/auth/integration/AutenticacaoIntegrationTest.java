@@ -18,7 +18,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.datasource.url=jdbc:sqlite::memory:")
 @AutoConfigureMockMvc
 @Transactional
 class AutenticacaoIntegrationTest {
@@ -36,11 +36,7 @@ class AutenticacaoIntegrationTest {
 
     @BeforeEach
     void criarEleitor() {
-        Usuario usuario = new Usuario();
-        usuario.setLogin(LOGIN);
-        usuario.setSenhaHash(passwordEncoder.encode(SENHA));
-        usuario.setPerfil(Perfil.ELEITOR);
-        usuarioRepository.saveAndFlush(usuario);
+        usuarioRepository.saveAndFlush(new Usuario(LOGIN, passwordEncoder.encode(SENHA), Perfil.ELEITOR));
     }
 
     @Test

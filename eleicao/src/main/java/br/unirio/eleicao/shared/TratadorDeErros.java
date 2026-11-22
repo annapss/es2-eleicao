@@ -35,7 +35,7 @@ public class TratadorDeErros {
     ResponseEntity<ErroResposta> parametroInvalido(MethodArgumentTypeMismatchException e) {
         return ResponseEntity.badRequest().body(new ErroResposta(400, "Parâmetro inválido: " + e.getName()));
     }
-    @ExceptionHandler(AccessDeniedException.class)   // lançada pelos serviços (ex.: CA vendo outro cargo)
+    @ExceptionHandler(AccessDeniedException.class)
     ResponseEntity<ErroResposta> e403(RuntimeException e){ return resp(403, e); }
 
     private ResponseEntity<ErroResposta> resp(int s, Exception e){

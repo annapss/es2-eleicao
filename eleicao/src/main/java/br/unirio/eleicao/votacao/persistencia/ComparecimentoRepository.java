@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ComparecimentoRepository extends JpaRepository<Comparecimento, ComparecimentoId> {
-    // Somente a transacao que inserir o comparecimento pode contabilizar o voto.
     @Modifying(flushAutomatically = true)
     @Query(value = "insert into comparecimento (eleitor_id, eleicao_id, cargo_id) "
             + "values (:eleitorId, :eleicaoId, :cargoId) "

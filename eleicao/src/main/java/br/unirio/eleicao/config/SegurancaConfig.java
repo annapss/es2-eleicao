@@ -30,8 +30,8 @@ public class SegurancaConfig {
                 .requestMatchers("/api/apuracao/**").hasAnyRole("ELEITOR", "CANDIDATO", "CHEFE_SECAO")
                 .anyRequest().authenticated())
             .exceptionHandling(e -> e
-                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))  // sem token -> 401
-                .accessDeniedHandler((req, res, ex) -> res.setStatus(403)))                    // perfil errado -> 403
+                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                .accessDeniedHandler((req, res, ex) -> res.setStatus(403)))
             .addFilterBefore(filtro, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

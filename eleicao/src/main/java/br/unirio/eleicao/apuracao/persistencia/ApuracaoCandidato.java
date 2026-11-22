@@ -13,9 +13,6 @@ import org.hibernate.annotations.Synchronize;
 
 import java.time.LocalDate;
 
-// Linha da view vw_apuracao: total de votos confirmados de um candidato. Somente leitura.
-// @Synchronize avisa o Hibernate de quais tabelas a view depende, para que votos ainda não
-// enviados ao banco na mesma transação sejam gravados antes da consulta.
 @Entity
 @Immutable
 @Synchronize({"candidato", "cargo", "partido", "voto"})

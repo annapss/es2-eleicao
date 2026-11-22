@@ -30,35 +30,32 @@ public class Usuario {
     @Column(nullable = false)
     private boolean ativo = true;
 
-    public Long getId() {
-        return id;
+    protected Usuario() {
     }
 
-    public String getLogin() {
-        return login;
-    }
-
-    public void setLogin(String login) {
+    public Usuario(String login, String senhaHash, Perfil perfil) {
         this.login = login;
-    }
-
-    public String getSenhaHash() {
-        return senhaHash;
-    }
-
-    public void setSenhaHash(String senhaHash) {
         this.senhaHash = senhaHash;
-    }
-
-    public Perfil getPerfil() {
-        return perfil;
-    }
-
-    public void setPerfil(Perfil perfil) {
         this.perfil = perfil;
     }
 
-    public boolean isAtivo() {
+    public Long id() {
+        return id;
+    }
+
+    public String login() {
+        return login;
+    }
+
+    public String senhaHash() {
+        return senhaHash;
+    }
+
+    public Perfil perfil() {
+        return perfil;
+    }
+
+    public boolean ativo() {
         return ativo;
     }
 }
