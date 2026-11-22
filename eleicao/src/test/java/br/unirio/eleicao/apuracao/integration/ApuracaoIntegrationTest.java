@@ -29,7 +29,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -193,12 +195,63 @@ class ApuracaoIntegrationTest {
     }
 
     @Test
-    void candidatoAindaNaoAcompanha() throws Exception {
+    void candidatoSemFiltroVeApenasOProprioCargo() throws Exception {
+        Long gov1 = candidato(eleicao, Cargo.GOVERNADOR, 15, "gov1");
+        Long gov2 = candidato(eleicao, Cargo.GOVERNADOR, 25, "gov2");
+        candidato(eleicao, Cargo.SENADOR, 151, "sen");
+        eleicao.registrarAbertura(LocalDateTime.now());
+        votar(eleicao, Cargo.GOVERNADOR, gov2, 1);
+        String candidato = ApoioTeste.bearer(mockMvc, "gov1", "senha-teste");
+
+        parcial(eleicao.id(), null, candidato).andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].candidatoId").value(gov2))
+                .andExpect(jsonPath("$[0].totalVotos").value(1))
+                .andExpect(jsonPath("$[1].candidatoId").value(gov1))
+                .andExpect(jsonPath("$[*].cargo", everyItem(is("GOVERNADOR"))));
+    }
+
+    @Test
+    void candidatoPodeFiltrarOProprioCargo() throws Exception {
         candidato(eleicao, Cargo.GOVERNADOR, 15, "gov");
+        candidato(eleicao, Cargo.SENADOR, 151, "sen");
         eleicao.registrarAbertura(LocalDateTime.now());
         String candidato = ApoioTeste.bearer(mockMvc, "gov", "senha-teste");
 
-        parcial(eleicao.id(), null, candidato).andExpect(status().isForbidden());
+        parcial(eleicao.id(), "GOVERNADOR", candidato).andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)));
+    }
+
+    @Test
+    void candidatoNaoVeOutroCargo() throws Exception {
+        candidato(eleicao, Cargo.GOVERNADOR, 15, "gov");
+        candidato(eleicao, Cargo.SENADOR, 151, "sen");
+        eleicao.registrarAbertura(LocalDateTime.now());
+        String candidato = ApoioTeste.bearer(mockMvc, "gov", "senha-teste");
+
+        for (String outro : new String[]{"SENADOR", "PRESIDENTE", "DEPUTADO_FEDERAL"}) {
+            parcial(eleicao.id(), outro, candidato).andExpect(status().isForbidden());
+        }
+    }
+
+    @Test
+    void candidatoNaoVeEleicaoEmQueNaoConcorre() throws Exception {
+        Eleicao outra = criarEleicao(2);
+        candidato(eleicao, Cargo.GOVERNADOR, 15, "gov");
+        candidato(outra, Cargo.GOVERNADOR, 15, "gov-t2");
+        eleicao.registrarAbertura(LocalDateTime.now());
+        String candidatoDaOutra = ApoioTeste.bearer(mockMvc, "gov-t2", "senha-teste");
+
+        parcial(eleicao.id(), null, candidatoDaOutra).andExpect(status().isForbidden());
+        parcial(eleicao.id(), "GOVERNADOR", candidatoDaOutra).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void candidatoComEleicaoNaoAbertaRetorna422() throws Exception {
+        candidato(eleicao, Cargo.GOVERNADOR, 15, "gov");
+        String candidato = ApoioTeste.bearer(mockMvc, "gov", "senha-teste");
+
+        parcial(eleicao.id(), null, candidato).andExpect(status().isUnprocessableContent());
     }
 
     private ResultActions parcial(Long eleicaoId, String cargo, String token) throws Exception {
