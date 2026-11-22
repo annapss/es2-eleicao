@@ -26,6 +26,8 @@ import br.unirio.eleicao.votacao.servico.NovoVoto;
 import br.unirio.eleicao.votacao.servico.VotoServico;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -70,10 +72,10 @@ class VotoServicoTest {
 
     @Test
     void votoConfirmadoNaoCriaPendente() {
-        prepararCandidatoValido();
+        when(eleitores.existsById(9L)).thenReturn(true);
         when(comparecimentos.existsById(new ComparecimentoId(9L, 7L, 4L))).thenReturn(true);
         assertThrows(ConflitoException.class, () -> servico.registrar(7L, dados));
-        verifyNoInteractions(pendentes);
+        verifyNoInteractions(candidatos, pendentes, votos);
     }
 
     @Test
@@ -85,7 +87,7 @@ class VotoServicoTest {
             when(candidatos.buscar(15L)).thenReturn(candidato);
             assertThrows(RegraDeNegocioException.class, () -> servico.registrar(7L, dados));
         }
-        verifyNoInteractions(pendentes, comparecimentos);
+        verifyNoInteractions(pendentes, votos);
     }
 
     @Test
@@ -147,6 +149,32 @@ class VotoServicoTest {
         assertThrows(NaoEncontradoException.class, () -> servico.confirmar(7L, Cargo.GOVERNADOR));
         verify(comparecimentos, never()).inserirSeAusente(anyLong(), anyLong(), anyLong());
         verifyNoInteractions(votos);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Perfil.class, names = {"CHEFE_SECAO", "CANDIDATO"})
+    void nenhumPerfilNaoEleitorPodeRegistrarOuConfirmar(Perfil perfil) {
+        when(autenticacao.usuarioAtual()).thenReturn(new UsuarioAutenticado(9L, perfil));
+        assertThrows(AccessDeniedException.class, () -> servico.registrar(7L, dados));
+        assertThrows(AccessDeniedException.class, () -> servico.confirmar(7L, Cargo.GOVERNADOR));
+        verifyNoInteractions(eleitores, eleicoes, candidatos, pendentes, comparecimentos, votos);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StatusEleicao.class, names = {"AGENDADA", "ENCERRADA"})
+    void eleicaoNaoAbertaBloqueiaRegistroEConfirmacaoAntesDeAcessarVotos(StatusEleicao status) {
+        when(eleitores.existsById(9L)).thenReturn(true);
+        doThrow(new RegraDeNegocioException("Eleicao esta " + status))
+                .when(eleicoes).exigirStatus(7L, StatusEleicao.ABERTA);
+        assertThrows(RegraDeNegocioException.class, () -> servico.registrar(7L, dados));
+        assertThrows(RegraDeNegocioException.class, () -> servico.confirmar(7L, Cargo.GOVERNADOR));
+        verifyNoInteractions(candidatos, pendentes, comparecimentos, votos);
+    }
+
+    @Test
+    void eleitorSemCadastroNaoPodeConfirmar() {
+        assertThrows(AccessDeniedException.class, () -> servico.confirmar(7L, Cargo.GOVERNADOR));
+        verifyNoInteractions(eleicoes, candidatos, pendentes, comparecimentos, votos);
     }
 
     private VotoPendente prepararConfirmacao() {

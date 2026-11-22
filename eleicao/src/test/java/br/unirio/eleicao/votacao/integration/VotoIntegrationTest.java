@@ -25,6 +25,8 @@ import br.unirio.eleicao.shared.Cargo;
 import br.unirio.eleicao.shared.Perfil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -309,6 +311,48 @@ class VotoIntegrationTest {
         confirmar(eleicao.id(), "PREFEITO").andExpect(status().isBadRequest());
         assertEquals(1L, pendentes.count());
         assertEquals(0L, votos.count());
+    }
+
+    @ParameterizedTest
+    @EnumSource(Cargo.class)
+    void votosRejeitadosPreservamEscolhaETotalDeCadaCargo(Cargo cargo) throws Exception {
+        Long primeiro = candidato(eleicao, cargo, 15, "primeiro-us19");
+        Long segundo = candidato(eleicao, cargo, 45, "segundo-us19");
+        eleicao.registrarAbertura(LocalDateTime.now());
+        registrar(eleicao.id(), cargo.name(), primeiro).andExpect(status().isCreated());
+        entityManager.flush();
+        entityManager.clear();
+        var chave = new VotoPendenteId(eleitorId, eleicao.id(), cargo.getId());
+        var registradoEm = pendentes.findById(chave).orElseThrow().getRegistradoEm();
+
+        registrar(eleicao.id(), cargo.name(), primeiro).andExpect(status().isConflict());
+        registrar(eleicao.id(), cargo.name(), segundo).andExpect(status().isConflict());
+        entityManager.clear();
+        var pendente = pendentes.findById(chave).orElseThrow();
+        assertEquals(primeiro, pendente.getCandidatoId());
+        assertEquals(registradoEm, pendente.getRegistradoEm());
+        assertEquals(1L, pendentes.count());
+        assertEquals(0L, votos.count());
+        assertEquals(0L, comparecimentos.count());
+
+        confirmar(eleicao.id(), cargo.name()).andExpect(status().isNoContent());
+        entityManager.clear();
+        String votoId = votos.findAll().getFirst().getId();
+        var votouEm = comparecimentos.findAll().getFirst().getVotouEm();
+        registrar(eleicao.id(), cargo.name(), primeiro).andExpect(status().isConflict());
+        registrar(eleicao.id(), cargo.name(), segundo).andExpect(status().isConflict());
+        // A imutabilidade tambem bloqueia uma tentativa com candidato inexistente.
+        registrar(eleicao.id(), cargo.name(), 999999999L).andExpect(status().isConflict());
+        confirmar(eleicao.id(), cargo.name()).andExpect(status().isConflict());
+        entityManager.clear();
+        assertEquals(0L, pendentes.count());
+        assertEquals(1L, votos.count());
+        assertEquals(1L, comparecimentos.count());
+        assertEquals(votoId, votos.findAll().getFirst().getId());
+        assertEquals(primeiro, votos.findById(votoId).orElseThrow().getCandidatoId());
+        assertEquals(votouEm, comparecimentos.findAll().getFirst().getVotouEm());
+        assertEquals(1, totalApurado(primeiro));
+        assertEquals(0, totalApurado(segundo));
     }
 
     private Long prepararPendente() throws Exception {
