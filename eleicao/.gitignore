@@ -36,3 +36,6 @@ build/
 
 ### Banco de Dados Local (SQLite) ###
 *.db
+
+### Saida da extensao Java do VS Code ###
+bin/
