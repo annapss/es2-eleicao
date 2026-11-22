@@ -23,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -196,9 +197,64 @@ class ApuracaoServicoTest {
         verifyNoInteractions(apuracao);
     }
 
+    @Test
+    void maisVotadoSemEmpate() {
+        ApuracaoCandidato ana = linha(1L, Cargo.GOVERNADOR, 15, "Ana", "PTST", 3);
+        ApuracaoCandidato caio = linha(3L, Cargo.GOVERNADOR, 25, "Caio", "PXYZ", 1);
+        when(apuracao.listar(7L, null)).thenReturn(List.of(ana, caio));
+
+        ResultadoCargo governador = servico.resultado(7L).cargos().get(3);
+
+        assertEquals(new LinhaApuracao(Cargo.GOVERNADOR, 1L, 15, "Ana", "PTST", 3), governador.maisVotado());
+        assertFalse(governador.desempatePorIdade());
+    }
+
+    @Test
+    void empateVenceOCandidatoMaisVelho() {
+        ApuracaoCandidato ana = nascido(linha(1L, Cargo.GOVERNADOR, 15, "Ana", "PTST", 2), 1980);
+        ApuracaoCandidato caio = nascido(linha(3L, Cargo.GOVERNADOR, 25, "Caio", "PXYZ", 2), 1960);
+        ApuracaoCandidato bia = linha(4L, Cargo.GOVERNADOR, 30, "Bia", "PXYZ", 1);
+        when(apuracao.listar(7L, null)).thenReturn(List.of(ana, caio, bia));
+
+        ResultadoCargo governador = servico.resultado(7L).cargos().get(3);
+
+        assertEquals(3L, governador.maisVotado().candidatoId());
+        assertTrue(governador.desempatePorIdade());
+    }
+
+    @Test
+    void empateComMesmaDataDeNascimentoVenceOMenorNumero() {
+        ApuracaoCandidato ana = nascido(linha(1L, Cargo.GOVERNADOR, 45, "Ana", "PTST", 2), 1970);
+        ApuracaoCandidato caio = nascido(linha(3L, Cargo.GOVERNADOR, 25, "Caio", "PXYZ", 2), 1970);
+        when(apuracao.listar(7L, null)).thenReturn(List.of(ana, caio));
+
+        ResultadoCargo governador = servico.resultado(7L).cargos().get(3);
+
+        assertEquals(3L, governador.maisVotado().candidatoId());
+        assertTrue(governador.desempatePorIdade());
+    }
+
+    @Test
+    void cargoSemVotosOuSemCandidatosNaoTemMaisVotado() {
+        ApuracaoCandidato ana = linha(1L, Cargo.GOVERNADOR, 15, "Ana", "PTST", 0);
+        ApuracaoCandidato caio = linha(3L, Cargo.GOVERNADOR, 25, "Caio", "PXYZ", 0);
+        when(apuracao.listar(7L, null)).thenReturn(List.of(ana, caio));
+
+        ResultadoFinal resultado = servico.resultado(7L);
+
+        assertNull(resultado.cargos().get(3).maisVotado());
+        assertFalse(resultado.cargos().get(3).desempatePorIdade());
+        assertNull(resultado.cargos().get(0).maisVotado());
+    }
+
+    private ApuracaoCandidato nascido(ApuracaoCandidato linha, int ano) {
+        when(linha.dataNascimento()).thenReturn(LocalDate.of(ano, 1, 1));
+        return linha;
+    }
+
     private void concorre(Cargo cargo) {
         when(candidatos.buscarPorUsuario(1L, 7L))
-                .thenReturn(Optional.of(new CandidatoDto(1L, "Ana", 15, "PTST", cargo, 7L)));
+                .thenReturn(Optional.of(new CandidatoDto(1L, "Ana", 15, "PTST", cargo, 7L, LocalDate.of(1970, 1, 1))));
     }
 
     private void logado(Perfil perfil) {

@@ -342,6 +342,6 @@ class VotoIntegrationTest {
 
     private Long candidato(Eleicao destino, Cargo cargo, int numero, String login) {
         Long usuarioId = autenticacao.criarConta(login, "senha-teste", Perfil.CANDIDATO);
-        return candidatos.save(new Candidato(usuarioId, login, numero, partidoId, cargo, destino.id())).id();
+        return candidatos.save(new Candidato(usuarioId, login, numero, partidoId, cargo, destino.id(), LocalDate.of(1970, 1, 1))).id();
     }
 }

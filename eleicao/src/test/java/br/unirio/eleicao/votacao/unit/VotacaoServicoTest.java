@@ -13,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -26,8 +27,8 @@ class VotacaoServicoTest {
 
     @Test
     void agrupaCandidatosPorCargoIncluindoCargosVazios() {
-        CandidatoDto governador = new CandidatoDto(1L, "Ana", 15, "PTST", Cargo.GOVERNADOR, 7L);
-        CandidatoDto senador = new CandidatoDto(2L, "Bia", 151, "PTST", Cargo.SENADOR, 7L);
+        CandidatoDto governador = new CandidatoDto(1L, "Ana", 15, "PTST", Cargo.GOVERNADOR, 7L, LocalDate.of(1970, 1, 1));
+        CandidatoDto senador = new CandidatoDto(2L, "Bia", 151, "PTST", Cargo.SENADOR, 7L, LocalDate.of(1970, 1, 1));
         when(candidatos.listar(7L, null)).thenReturn(List.of(governador, senador));
 
         var resultado = servico.listarCandidatos(7L);

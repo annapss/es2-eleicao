@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS candidato (
     usuario_id  INTEGER NOT NULL,
     perfil      TEXT    NOT NULL DEFAULT 'CANDIDATO' CHECK (perfil = 'CANDIDATO'),
     nome        TEXT    NOT NULL,
+    data_nascimento TEXT NOT NULL CHECK (date(data_nascimento) IS NOT NULL),
     numero      INTEGER NOT NULL CHECK (numero > 0),
     partido_id  INTEGER NOT NULL REFERENCES partido (id),
     cargo_id    INTEGER NOT NULL REFERENCES cargo (id),
@@ -119,13 +120,14 @@ SELECT  c.eleicao_id,
         c.id          AS candidato_id,
         c.numero,
         c.nome        AS candidato,
+        c.data_nascimento AS data_nascimento,
         p.sigla       AS partido,
         COUNT(v.id)   AS total_votos
 FROM    candidato c
 JOIN    cargo   cg ON cg.id = c.cargo_id
 JOIN    partido p  ON p.id  = c.partido_id
 LEFT JOIN voto  v  ON v.candidato_id = c.id
-GROUP BY c.eleicao_id, c.cargo_id, cg.nome, cg.ordem, c.id, c.numero, c.nome, p.sigla;
+GROUP BY c.eleicao_id, c.cargo_id, cg.nome, cg.ordem, c.id, c.numero, c.nome, c.data_nascimento, p.sigla;
 
 CREATE VIEW IF NOT EXISTS vw_resultado_final AS
 SELECT  r.*,

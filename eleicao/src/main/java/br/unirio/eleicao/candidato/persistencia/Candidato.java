@@ -2,6 +2,7 @@ package br.unirio.eleicao.candidato.persistencia;
 
 import br.unirio.eleicao.shared.Cargo;
 import br.unirio.eleicao.shared.ConversorCargo;
+import br.unirio.eleicao.shared.ConversorData;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -9,6 +10,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "candidato")
@@ -36,16 +39,22 @@ public class Candidato {
     @Column(name = "eleicao_id", nullable = false)
     private Long eleicaoId;
 
+    @Convert(converter = ConversorData.class)
+    @Column(name = "data_nascimento", nullable = false)
+    private LocalDate dataNascimento;
+
     protected Candidato() {
     }
 
-    public Candidato(Long usuarioId, String nome, int numero, Long partidoId, Cargo cargo, Long eleicaoId) {
+    public Candidato(Long usuarioId, String nome, int numero, Long partidoId, Cargo cargo, Long eleicaoId,
+                     LocalDate dataNascimento) {
         this.usuarioId = usuarioId;
         this.nome = nome;
         this.numero = numero;
         this.partidoId = partidoId;
         this.cargo = cargo;
         this.eleicaoId = eleicaoId;
+        this.dataNascimento = dataNascimento;
     }
 
     public Long id() {
@@ -76,10 +85,15 @@ public class Candidato {
         return eleicaoId;
     }
 
-    public void alterar(String nome, int numero, Long partidoId, Cargo cargo) {
+    public LocalDate dataNascimento() {
+        return dataNascimento;
+    }
+
+    public void alterar(String nome, int numero, Long partidoId, Cargo cargo, LocalDate dataNascimento) {
         this.nome = nome;
         this.numero = numero;
         this.partidoId = partidoId;
         this.cargo = cargo;
+        this.dataNascimento = dataNascimento;
     }
 }

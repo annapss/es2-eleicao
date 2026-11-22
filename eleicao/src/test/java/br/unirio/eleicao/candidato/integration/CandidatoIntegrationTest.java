@@ -64,6 +64,21 @@ class CandidatoIntegrationTest {
     }
 
     @Test
+    void dataDeNascimentoAusenteOuFuturaRetorna400() throws Exception {
+        String semData = candidato(15, "GOVERNADOR", "cand-sem-data").replace("\"dataNascimento\":\"1970-01-01\",", "");
+        cadastrar(semData).andExpect(status().isBadRequest());
+        String futura = candidato(15, "GOVERNADOR", "cand-futuro").replace("1970-01-01", "2999-01-01");
+        cadastrar(futura).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void cadastroDevolveDataDeNascimento() throws Exception {
+        cadastrar(candidato(15, "GOVERNADOR", "cand-com-data"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.dataNascimento").value("1970-01-01"));
+    }
+
+    @Test
     void cargoInvalidoRetorna400() throws Exception {
         cadastrar(candidato(15, "PREFEITO", "cand-teste-a"))
                 .andExpect(status().isBadRequest())
@@ -296,14 +311,14 @@ class CandidatoIntegrationTest {
 
     private String candidato(int numero, String cargo, String login, long eleicao, long partido) {
         return """
-                {"nome":"João","numero":%d,"partidoId":%d,"cargo":"%s","eleicaoId":%d,
+                {"nome":"João","dataNascimento":"1970-01-01","numero":%d,"partidoId":%d,"cargo":"%s","eleicaoId":%d,
                  "login":"%s","senha":"senha-teste"}
                 """.formatted(numero, partido, cargo, eleicao, login);
     }
 
     private String dadosCandidato(String nome, int numero, String cargo) {
         return """
-                {"nome":"%s","numero":%d,"partidoId":%d,"cargo":"%s"}
+                {"nome":"%s","dataNascimento":"1970-01-01","numero":%d,"partidoId":%d,"cargo":"%s"}
                 """.formatted(nome, numero, partidoId, cargo);
     }
 }

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -51,17 +52,35 @@ public class ApuracaoServico {
     @Transactional(readOnly = true)
     public ResultadoFinal resultado(Long eleicaoId) {
         eleicao.exigirStatus(eleicaoId, StatusEleicao.ENCERRADA);
-        Map<Cargo, List<LinhaApuracao>> porCargo = new EnumMap<>(Cargo.class);
+        Map<Cargo, List<ApuracaoCandidato>> porCargo = new EnumMap<>(Cargo.class);
         for (Cargo cargo : Cargo.values()) {
             porCargo.put(cargo, new ArrayList<>());
         }
         for (ApuracaoCandidato linha : apuracao.listar(eleicaoId, null)) {
-            porCargo.get(linha.cargo()).add(paraDto(linha));
+            porCargo.get(linha.cargo()).add(linha);
         }
         List<ResultadoCargo> cargos = porCargo.entrySet().stream()
-                .map(item -> new ResultadoCargo(item.getKey(), List.copyOf(item.getValue())))
+                .map(item -> resultadoDoCargo(item.getKey(), item.getValue()))
                 .toList();
         return new ResultadoFinal(eleicaoId, cargos);
+    }
+
+    // Mais votado do cargo. Em empate de votos vence o candidato mais velho (data de nascimento
+    // mais antiga); se também nasceram no mesmo dia, vence o de menor número. Sem votos, não há vencedor.
+    private ResultadoCargo resultadoDoCargo(Cargo cargo, List<ApuracaoCandidato> linhas) {
+        List<LinhaApuracao> candidatos = linhas.stream().map(this::paraDto).toList();
+        long maiorVotacao = linhas.stream().mapToLong(ApuracaoCandidato::totalVotos).max().orElse(0);
+        if (maiorVotacao == 0) {
+            return new ResultadoCargo(cargo, null, false, candidatos);
+        }
+        List<ApuracaoCandidato> empatados = linhas.stream()
+                .filter(linha -> linha.totalVotos() == maiorVotacao)
+                .toList();
+        ApuracaoCandidato vencedor = empatados.stream()
+                .min(Comparator.comparing(ApuracaoCandidato::dataNascimento)
+                        .thenComparingInt(ApuracaoCandidato::numero))
+                .orElseThrow();
+        return new ResultadoCargo(cargo, paraDto(vencedor), empatados.size() > 1, candidatos);
     }
 
     // Sem filtro, o candidato recebe o próprio cargo. Pedir outro cargo, ou consultar uma eleição

@@ -2,6 +2,7 @@ package br.unirio.eleicao.apuracao.persistencia;
 
 import br.unirio.eleicao.shared.Cargo;
 import br.unirio.eleicao.shared.ConversorCargo;
+import br.unirio.eleicao.shared.ConversorData;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -9,6 +10,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.Immutable;
 import org.hibernate.annotations.Synchronize;
+
+import java.time.LocalDate;
 
 // Linha da view vw_apuracao: total de votos confirmados de um candidato. Somente leitura.
 // @Synchronize avisa o Hibernate de quais tabelas a view depende, para que votos ainda não
@@ -44,6 +47,10 @@ public class ApuracaoCandidato {
     @Column(name = "total_votos")
     private long totalVotos;
 
+    @Convert(converter = ConversorData.class)
+    @Column(name = "data_nascimento")
+    private LocalDate dataNascimento;
+
     protected ApuracaoCandidato() {
     }
 
@@ -73,5 +80,9 @@ public class ApuracaoCandidato {
 
     public long totalVotos() {
         return totalVotos;
+    }
+
+    public LocalDate dataNascimento() {
+        return dataNascimento;
     }
 }

@@ -32,6 +32,7 @@ import java.time.LocalTime;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -334,6 +335,40 @@ class ApuracaoIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void resultadoIndicaMaisVotadoDeCadaCargo() throws Exception {
+        Long gov1 = candidato(eleicao, Cargo.GOVERNADOR, 15, "gov1");
+        Long gov2 = candidato(eleicao, Cargo.GOVERNADOR, 25, "gov2");
+        candidato(eleicao, Cargo.SENADOR, 151, "sen");
+        eleicao.registrarAbertura(LocalDateTime.now());
+        votar(eleicao, Cargo.GOVERNADOR, gov2, 2);
+        votar(eleicao, Cargo.GOVERNADOR, gov1, 1);
+        eleicao.registrarEncerramento(LocalDateTime.now());
+
+        resultado(eleicao.id(), eleitor).andExpect(status().isOk())
+                .andExpect(jsonPath("$.cargos[3].maisVotado.candidatoId").value(gov2))
+                .andExpect(jsonPath("$.cargos[3].maisVotado.totalVotos").value(2))
+                .andExpect(jsonPath("$.cargos[3].desempatePorIdade").value(false))
+                // senador sem votos e deputado sem candidatos: sem mais votado
+                .andExpect(jsonPath("$.cargos[2].maisVotado").value(nullValue()))
+                .andExpect(jsonPath("$.cargos[0].maisVotado").value(nullValue()));
+    }
+
+    @Test
+    void empateNoResultadoVenceOCandidatoMaisVelho() throws Exception {
+        Long jovem = candidato(eleicao, Cargo.PRESIDENTE, 10, "pres-jovem", LocalDate.of(1990, 5, 20));
+        Long velho = candidato(eleicao, Cargo.PRESIDENTE, 20, "pres-velho", LocalDate.of(1955, 3, 1));
+        eleicao.registrarAbertura(LocalDateTime.now());
+        votar(eleicao, Cargo.PRESIDENTE, jovem, 3);
+        votar(eleicao, Cargo.PRESIDENTE, velho, 3);
+        eleicao.registrarEncerramento(LocalDateTime.now());
+
+        resultado(eleicao.id(), eleitor).andExpect(status().isOk())
+                .andExpect(jsonPath("$.cargos[4].maisVotado.candidatoId").value(velho))
+                .andExpect(jsonPath("$.cargos[4].desempatePorIdade").value(true))
+                .andExpect(jsonPath("$.cargos[4].candidatos", hasSize(2)));
+    }
+
     private ResultActions resultado(Long eleicaoId, String token) throws Exception {
         return mockMvc.perform(get("/api/apuracao/eleicoes/{id}/resultado", eleicaoId)
                 .header("Authorization", token));
@@ -359,7 +394,12 @@ class ApuracaoIntegrationTest {
     }
 
     private Long candidato(Eleicao destino, Cargo cargo, int numero, String login) {
+        return candidato(destino, cargo, numero, login, LocalDate.of(1970, 1, 1));
+    }
+
+    private Long candidato(Eleicao destino, Cargo cargo, int numero, String login, LocalDate nascimento) {
         Long usuarioId = autenticacao.criarConta(login, "senha-teste", Perfil.CANDIDATO);
-        return candidatos.save(new Candidato(usuarioId, login, numero, partidoId, cargo, destino.id())).id();
+        return candidatos.save(new Candidato(usuarioId, login, numero, partidoId, cargo, destino.id(), nascimento))
+                .id();
     }
 }

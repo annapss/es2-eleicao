@@ -68,7 +68,7 @@ class ConfirmacaoTransacaoIntegrationTest {
         Long partido = partidos.saveAndFlush(new Partido("RB", "Rollback")).id();
         Long usuarioCandidato = autenticacao.criarConta("ca-rollback", "senha", Perfil.CANDIDATO);
         Long candidato = candidatos.saveAndFlush(new Candidato(usuarioCandidato, "Ana", 15, partido,
-                Cargo.GOVERNADOR, eleicao.id())).id();
+                Cargo.GOVERNADOR, eleicao.id(), LocalDate.of(1970, 1, 1))).id();
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
                 new UsuarioAutenticado(eleitor, Perfil.ELEITOR), null, "ROLE_ELEITOR"));
         Long eleicaoId = eleicao.id();

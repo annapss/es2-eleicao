@@ -44,7 +44,7 @@ public class CandidatoServico {
         }
         Long usuarioId = criarConta(dados);
         Candidato candidato = new Candidato(usuarioId, dados.nome(), dados.numero(), dados.partidoId(),
-                dados.cargo(), dados.eleicaoId());
+                dados.cargo(), dados.eleicaoId(), dados.dataNascimento());
         return paraDto(candidatos.save(candidato));
     }
 
@@ -74,7 +74,7 @@ public class CandidatoServico {
         if (candidatos.contarPorNumeroDeOutroCandidato(candidato.eleicaoId(), dados.cargo(), dados.numero(), id) > 0) {
             throw new ConflitoException("Já existe candidato com esse número nesse cargo e eleição");
         }
-        candidato.alterar(dados.nome(), dados.numero(), dados.partidoId(), dados.cargo());
+        candidato.alterar(dados.nome(), dados.numero(), dados.partidoId(), dados.cargo(), dados.dataNascimento());
         return paraDto(candidato);
     }
 
@@ -135,6 +135,7 @@ public class CandidatoServico {
 
     private CandidatoDto paraDto(Candidato candidato, Map<Long, String> siglas) {
         return new CandidatoDto(candidato.id(), candidato.nome(), candidato.numero(),
-                siglas.get(candidato.partidoId()), candidato.cargo(), candidato.eleicaoId());
+                siglas.get(candidato.partidoId()), candidato.cargo(), candidato.eleicaoId(),
+                candidato.dataNascimento());
     }
 }

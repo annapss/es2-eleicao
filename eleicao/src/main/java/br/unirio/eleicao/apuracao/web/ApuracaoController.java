@@ -40,7 +40,10 @@ public class ApuracaoController {
     @Operation(summary = "Consultar o resultado final",
             description = "Disponível somente com a eleição ENCERRADA. Retorna todos os cargos, na ordem oficial, "
                     + "cada um com seus candidatos (cargo, número, partido e votos), do mais votado para o menos "
-                    + "votado. Cargos sem candidatos vêm com lista vazia. Eleitor, Candidato e Chefe da Seção veem "
+                    + "votado. Cargos sem candidatos vêm com lista vazia. Cada cargo traz o maisVotado (nulo se "
+                    + "o cargo não teve votos): em empate de votos vence o candidato mais velho, e o campo "
+                    + "desempatePorIdade fica true; se nasceram no mesmo dia, vence o de menor número. "
+                    + "Eleitor, Candidato e Chefe da Seção veem "
                     + "todos os cargos. Eleição inexistente retorna 404; AGENDADA ou ABERTA retorna 422.")
     @GetMapping("/eleicoes/{eleicaoId}/resultado")
     public ResultadoFinal resultado(@PathVariable Long eleicaoId) {

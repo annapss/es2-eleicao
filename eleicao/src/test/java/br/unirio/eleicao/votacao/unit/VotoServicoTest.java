@@ -6,6 +6,7 @@ import br.unirio.eleicao.votacao.persistencia.Voto;
 import br.unirio.eleicao.votacao.persistencia.VotoRepository;
 import br.unirio.eleicao.votacao.persistencia.VotoPendente;
 import br.unirio.eleicao.votacao.persistencia.VotoPendenteId;
+import java.time.LocalDate;
 import java.util.Optional;
 import org.mockito.ArgumentCaptor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -80,8 +81,8 @@ class VotoServicoTest {
     void candidatoIncompativelNaoCriaPendente() {
         when(eleitores.existsById(9L)).thenReturn(true);
         for (CandidatoDto candidato : new CandidatoDto[]{
-                new CandidatoDto(15L, "Ana", 15, "TEST", Cargo.SENADOR, 7L),
-                new CandidatoDto(15L, "Ana", 15, "TEST", Cargo.GOVERNADOR, 8L)}) {
+                new CandidatoDto(15L, "Ana", 15, "TEST", Cargo.SENADOR, 7L, LocalDate.of(1970, 1, 1)),
+                new CandidatoDto(15L, "Ana", 15, "TEST", Cargo.GOVERNADOR, 8L, LocalDate.of(1970, 1, 1))}) {
             when(candidatos.buscar(15L)).thenReturn(candidato);
             assertThrows(RegraDeNegocioException.class, () -> servico.registrar(7L, dados));
         }
@@ -159,6 +160,6 @@ class VotoServicoTest {
     private void prepararCandidatoValido() {
         when(eleitores.existsById(9L)).thenReturn(true);
         when(candidatos.buscar(15L)).thenReturn(
-                new CandidatoDto(15L, "Ana", 15, "TEST", Cargo.GOVERNADOR, 7L));
+                new CandidatoDto(15L, "Ana", 15, "TEST", Cargo.GOVERNADOR, 7L, LocalDate.of(1970, 1, 1)));
     }
 }
