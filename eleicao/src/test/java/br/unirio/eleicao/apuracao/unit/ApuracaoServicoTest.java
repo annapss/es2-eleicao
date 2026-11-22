@@ -4,8 +4,12 @@ import br.unirio.eleicao.apuracao.persistencia.ApuracaoCandidato;
 import br.unirio.eleicao.apuracao.persistencia.ApuracaoRepository;
 import br.unirio.eleicao.apuracao.servico.ApuracaoServico;
 import br.unirio.eleicao.apuracao.servico.LinhaApuracao;
+import br.unirio.eleicao.apuracao.servico.ResultadoCargo;
+import br.unirio.eleicao.apuracao.servico.ResultadoFinal;
 import br.unirio.eleicao.auth.service.AutenticacaoServico;
 import br.unirio.eleicao.auth.service.UsuarioAutenticado;
+import br.unirio.eleicao.candidato.servico.CandidatoDto;
+import br.unirio.eleicao.candidato.servico.CandidatoServico;
 import br.unirio.eleicao.eleicao.servico.EleicaoServico;
 import br.unirio.eleicao.shared.Cargo;
 import br.unirio.eleicao.shared.NaoEncontradoException;
@@ -19,7 +23,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -28,6 +34,7 @@ import static org.mockito.Mockito.*;
 class ApuracaoServicoTest {
     @Mock private ApuracaoRepository apuracao;
     @Mock private EleicaoServico eleicao;
+    @Mock private CandidatoServico candidatos;
     @Mock private AutenticacaoServico autenticacao;
     @InjectMocks private ApuracaoServico servico;
 
@@ -87,12 +94,167 @@ class ApuracaoServicoTest {
     }
 
     @Test
-    void candidatoAindaNaoAcompanha() {
+    void eleitorNaoPrecisaConsultarCandidatura() {
+        logado(Perfil.ELEITOR);
+        when(apuracao.listar(7L, Cargo.SENADOR)).thenReturn(List.of());
+
+        servico.parcial(7L, Cargo.SENADOR);
+
+        verifyNoInteractions(candidatos);
+    }
+
+    @Test
+    void candidatoSemFiltroRecebeOProprioCargo() {
         logado(Perfil.CANDIDATO);
+        concorre(Cargo.GOVERNADOR);
+        ApuracaoCandidato governador = linha(1L, Cargo.GOVERNADOR, 15, "Ana", "PTST", 3);
+        when(apuracao.listar(7L, Cargo.GOVERNADOR)).thenReturn(List.of(governador));
+
+        List<LinhaApuracao> resultado = servico.parcial(7L, null);
+
+        assertEquals(List.of(new LinhaApuracao(Cargo.GOVERNADOR, 1L, 15, "Ana", "PTST", 3)), resultado);
+        verify(apuracao, never()).listar(7L, null);
+    }
+
+    @Test
+    void candidatoPodePedirOProprioCargo() {
+        logado(Perfil.CANDIDATO);
+        concorre(Cargo.GOVERNADOR);
+        when(apuracao.listar(7L, Cargo.GOVERNADOR)).thenReturn(List.of());
+
+        assertTrue(servico.parcial(7L, Cargo.GOVERNADOR).isEmpty());
+    }
+
+    @Test
+    void candidatoNaoVeOutroCargo() {
+        logado(Perfil.CANDIDATO);
+        concorre(Cargo.GOVERNADOR);
+
+        assertThrows(AccessDeniedException.class, () -> servico.parcial(7L, Cargo.PRESIDENTE));
+
+        verifyNoInteractions(apuracao);
+    }
+
+    @Test
+    void candidatoNaoVeEleicaoEmQueNaoConcorre() {
+        logado(Perfil.CANDIDATO);
+        when(candidatos.buscarPorUsuario(1L, 7L)).thenReturn(Optional.empty());
 
         assertThrows(AccessDeniedException.class, () -> servico.parcial(7L, null));
 
-        verifyNoInteractions(eleicao, apuracao);
+        verifyNoInteractions(apuracao);
+    }
+
+    @Test
+    void candidatoTambemExigeEleicaoAberta() {
+        logado(Perfil.CANDIDATO);
+        doThrow(new RegraDeNegocioException("Eleição não está aberta"))
+                .when(eleicao).exigirStatus(7L, StatusEleicao.ABERTA);
+
+        assertThrows(RegraDeNegocioException.class, () -> servico.parcial(7L, null));
+
+        verifyNoInteractions(candidatos, apuracao);
+    }
+
+    @Test
+    void resultadoAgrupaPorCargoNaOrdemOficial() {
+        ApuracaoCandidato senador = linha(2L, Cargo.SENADOR, 151, "Bia", "PXYZ", 4);
+        ApuracaoCandidato governador1 = linha(1L, Cargo.GOVERNADOR, 15, "Ana", "PTST", 3);
+        ApuracaoCandidato governador2 = linha(3L, Cargo.GOVERNADOR, 25, "Caio", "PXYZ", 1);
+        when(apuracao.listar(7L, null)).thenReturn(List.of(senador, governador1, governador2));
+
+        ResultadoFinal resultado = servico.resultado(7L);
+
+        assertEquals(7L, resultado.eleicaoId());
+        assertEquals(List.of(Cargo.values()), resultado.cargos().stream().map(ResultadoCargo::cargo).toList());
+        assertEquals(List.of(new LinhaApuracao(Cargo.SENADOR, 2L, 151, "Bia", "PXYZ", 4)),
+                resultado.cargos().get(2).candidatos());
+        assertEquals(List.of(
+                new LinhaApuracao(Cargo.GOVERNADOR, 1L, 15, "Ana", "PTST", 3),
+                new LinhaApuracao(Cargo.GOVERNADOR, 3L, 25, "Caio", "PXYZ", 1)),
+                resultado.cargos().get(3).candidatos());
+        assertTrue(resultado.cargos().get(0).candidatos().isEmpty());
+        verify(eleicao).exigirStatus(7L, StatusEleicao.ENCERRADA);
+    }
+
+    @Test
+    void resultadoNaoDependeDoPerfil() {
+        when(apuracao.listar(7L, null)).thenReturn(List.of());
+
+        servico.resultado(7L);
+
+        // Nenhuma restrição por perfil: o resultado final é igual para eleitor, candidato e chefe.
+        verifyNoInteractions(autenticacao, candidatos);
+    }
+
+    @Test
+    void resultadoExigeEleicaoEncerrada() {
+        doThrow(new RegraDeNegocioException("Eleição não está encerrada"))
+                .when(eleicao).exigirStatus(7L, StatusEleicao.ENCERRADA);
+
+        assertThrows(RegraDeNegocioException.class, () -> servico.resultado(7L));
+
+        verifyNoInteractions(apuracao);
+    }
+
+    @Test
+    void maisVotadoSemEmpate() {
+        ApuracaoCandidato ana = linha(1L, Cargo.GOVERNADOR, 15, "Ana", "PTST", 3);
+        ApuracaoCandidato caio = linha(3L, Cargo.GOVERNADOR, 25, "Caio", "PXYZ", 1);
+        when(apuracao.listar(7L, null)).thenReturn(List.of(ana, caio));
+
+        ResultadoCargo governador = servico.resultado(7L).cargos().get(3);
+
+        assertEquals(new LinhaApuracao(Cargo.GOVERNADOR, 1L, 15, "Ana", "PTST", 3), governador.maisVotado());
+        assertFalse(governador.desempatePorIdade());
+    }
+
+    @Test
+    void empateVenceOCandidatoMaisVelho() {
+        ApuracaoCandidato ana = nascido(linha(1L, Cargo.GOVERNADOR, 15, "Ana", "PTST", 2), 1980);
+        ApuracaoCandidato caio = nascido(linha(3L, Cargo.GOVERNADOR, 25, "Caio", "PXYZ", 2), 1960);
+        ApuracaoCandidato bia = linha(4L, Cargo.GOVERNADOR, 30, "Bia", "PXYZ", 1);
+        when(apuracao.listar(7L, null)).thenReturn(List.of(ana, caio, bia));
+
+        ResultadoCargo governador = servico.resultado(7L).cargos().get(3);
+
+        assertEquals(3L, governador.maisVotado().candidatoId());
+        assertTrue(governador.desempatePorIdade());
+    }
+
+    @Test
+    void empateComMesmaDataDeNascimentoVenceOMenorNumero() {
+        ApuracaoCandidato ana = nascido(linha(1L, Cargo.GOVERNADOR, 45, "Ana", "PTST", 2), 1970);
+        ApuracaoCandidato caio = nascido(linha(3L, Cargo.GOVERNADOR, 25, "Caio", "PXYZ", 2), 1970);
+        when(apuracao.listar(7L, null)).thenReturn(List.of(ana, caio));
+
+        ResultadoCargo governador = servico.resultado(7L).cargos().get(3);
+
+        assertEquals(3L, governador.maisVotado().candidatoId());
+        assertTrue(governador.desempatePorIdade());
+    }
+
+    @Test
+    void cargoSemVotosOuSemCandidatosNaoTemMaisVotado() {
+        ApuracaoCandidato ana = linha(1L, Cargo.GOVERNADOR, 15, "Ana", "PTST", 0);
+        ApuracaoCandidato caio = linha(3L, Cargo.GOVERNADOR, 25, "Caio", "PXYZ", 0);
+        when(apuracao.listar(7L, null)).thenReturn(List.of(ana, caio));
+
+        ResultadoFinal resultado = servico.resultado(7L);
+
+        assertNull(resultado.cargos().get(3).maisVotado());
+        assertFalse(resultado.cargos().get(3).desempatePorIdade());
+        assertNull(resultado.cargos().get(0).maisVotado());
+    }
+
+    private ApuracaoCandidato nascido(ApuracaoCandidato linha, int ano) {
+        when(linha.dataNascimento()).thenReturn(LocalDate.of(ano, 1, 1));
+        return linha;
+    }
+
+    private void concorre(Cargo cargo) {
+        when(candidatos.buscarPorUsuario(1L, 7L))
+                .thenReturn(Optional.of(new CandidatoDto(1L, "Ana", 15, "PTST", cargo, 7L, LocalDate.of(1970, 1, 1))));
     }
 
     private void logado(Perfil perfil) {

@@ -27,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.jpa.JpaSystemException;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -151,7 +152,7 @@ class CandidatoServicoTest {
         when(candidatos.findById(CANDIDATO)).thenReturn(Optional.of(candidato()));
         when(partidos.existsById(PARTIDO)).thenReturn(true);
 
-        CandidatoDto dto = servico.atualizar(CANDIDATO, new DadosCandidato("João Silva", 45, PARTIDO, Cargo.SENADOR));
+        CandidatoDto dto = servico.atualizar(CANDIDATO, new DadosCandidato("João Silva", LocalDate.of(1970, 1, 1), 45, PARTIDO, Cargo.SENADOR));
 
         assertEquals("João Silva", dto.nome());
         assertEquals(45, dto.numero());
@@ -243,14 +244,14 @@ class CandidatoServicoTest {
     }
 
     private NovoCandidato novoCandidato() {
-        return new NovoCandidato("João", 15, PARTIDO, Cargo.GOVERNADOR, ELEICAO, "joao", "senha");
+        return new NovoCandidato("João", LocalDate.of(1970, 1, 1), 15, PARTIDO, Cargo.GOVERNADOR, ELEICAO, "joao", "senha");
     }
 
     private DadosCandidato dadosCandidato(String nome) {
-        return new DadosCandidato(nome, 15, PARTIDO, Cargo.GOVERNADOR);
+        return new DadosCandidato(nome, LocalDate.of(1970, 1, 1), 15, PARTIDO, Cargo.GOVERNADOR);
     }
 
     private Candidato candidato() {
-        return new Candidato(USUARIO, "João", 15, PARTIDO, Cargo.GOVERNADOR, ELEICAO);
+        return new Candidato(USUARIO, "João", 15, PARTIDO, Cargo.GOVERNADOR, ELEICAO, LocalDate.of(1970, 1, 1));
     }
 }
